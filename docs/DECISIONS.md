@@ -9,7 +9,7 @@ what was decided and why, so it can be revisited.
 true` (the default) every request is refused until `CONTACT_EMAIL` is set in `.env`. During
 the build there was no `.env` yet (the brief says to add it afterwards), so verification
 runs used `--set http.require_contact_email=false` and sent the User-Agent
-`synergyrx-data/0.1.0 (research data pipeline; contact not configured)`. Those runs were
+`tujya-data/0.1.0 (research data pipeline; contact not configured)`. Those runs were
 kept small: single bulk files and a few dozen API calls.
 
 **D2. robots.txt is checked for bulk downloads too, not only for HTML.** The brief requires
@@ -144,7 +144,7 @@ from those.
 ## Engineering
 
 **D22. The project root is the folder the prompt was run in**, not a nested
-`synergyrx-data/` directory: the brief says to start in an empty project folder, and that
+`tujya-data/` directory: the brief says to start in an empty project folder, and that
 folder is the editor's workspace.
 
 **D23. Three dependencies beyond the brief's list:** `python-dotenv` (read `.env` without

@@ -1,285 +1,521 @@
-# synergyrx-data
+<div align="center">
 
-Data collection pipeline for **SynergyRx AI**: prediction of drug-combination synergy on
-cancer cell lines, enriched with knowledge extracted from PubMed.
+# 💊 tujya-data
 
-It collects public scientific data from a fixed list of sources, politely and reproducibly:
-official APIs first, official bulk files second, and no HTML scraping. It is not a
-general-purpose web scraper and refuses to talk to any host that is not one of its sources.
+**Pipeline de collecte de données pour Tujya**
 
-## What you get
+Prédire quelles combinaisons de médicaments agissent mieux ensemble sur des lignées de cancer,
+en s'appuyant sur les données publiques et sur la littérature scientifique (PubMed).
 
-Everything the pipeline produces is in one folder, `data/`, with one sub-folder per file
-format. The extension of a file tells you where it is:
+`Python 3.11+` · `FastAPI` · `React` · `Parquet` · `Licences vérifiées`
+
+🏫 TEK-UP University · 👥 **Équipe : Mohamed Raed Bouhali · Ilef Ben Hassen · Melek Bouabid**
+
+</div>
+
+> [!NOTE]
+> Le pipeline collecte uniquement des données scientifiques **publiques**, de façon polie et reproductible :
+> **API officielles d'abord**, fichiers officiels ensuite, **jamais de scraping HTML**.
+> Ce n'est pas un scraper généraliste : il refuse de contacter tout site qui n'est pas dans sa liste de sources.
+
+---
+
+## 📑 Sommaire
+
+| | Section | | Section |
+|---|---|---|---|
+| 🧱 | [Architecture](#architecture) | 🌐 | [Comportement réseau](#comportement-reseau) |
+| 📦 | [Ce que vous obtenez](#ce-que-vous-obtenez) | ⏰ | [Planification et Docker](#planification-et-docker) |
+| ⚙️ | [Installation](#installation) | 🖥️ | [Application web](#application-web) |
+| ▶️ | [Utilisation](#utilisation) | 🛠️ | [Développement](#developpement) |
+| 📚 | [Sources](#sources) | 🗂️ | [Structure du dépôt](#structure-du-depot) |
+
+---
+
+<a id="architecture"></a>
+
+## 🧱 Architecture
+
+Le projet a **trois couches**. Chacune lit uniquement la sortie de la précédente.
+
+| Couche | Dossier | Rôle |
+|---|---|---|
+| 1️⃣ Pipeline de données | `src/tujya_data/` | Collecter, valider et nettoyer les données dans `data/` |
+| 2️⃣ Application web | `backend/` et `frontend/` | Lire les tables de `data/parquet` et les servir avec comptes et rôles |
+| 3️⃣ Modélisation 🟡 *prévue* | à venir | Entraîner et comparer les modèles sur les mêmes tables |
+
+### 🔭 Vue d'ensemble
+
+```mermaid
+flowchart LR
+    subgraph SRC["Sources publiques"]
+        S1["DrugComb, TDC, O'Neil, NCI-ALMANAC"]
+        S2["DepMap / CCLE"]
+        S3["PubChem, ChEMBL"]
+        S4["PubMed, Europe PMC"]
+    end
+
+    subgraph PIPE["1. Pipeline de données (CLI tujya)"]
+        P1["fetch<br/>télécharger, analyser, valider"]
+        P2["clean<br/>SMILES, noms, paires, scores"]
+        P3["literature<br/>résumés, phrases, mentions"]
+        P4["report et export<br/>qualité, licences, JSON"]
+    end
+
+    subgraph DATA["data/"]
+        D1["raw, interim<br/>dossiers de travail"]
+        D2["parquet<br/>tables pour modéliser"]
+        D3["csv, json, reports"]
+    end
+
+    subgraph APP["2. Application web"]
+        B["Backend FastAPI<br/>comptes, sessions, rôles"]
+        F["Frontend React<br/>intro, pages utilisateur, admin"]
+    end
+
+    subgraph ML["3. Modélisation (prévue)"]
+        M["LightGBM, MLP, GNN, fusion"]
+    end
+
+    SRC --> P1 --> D1 --> P2 --> D2
+    D2 --> P3 --> P4 --> D3
+    D2 --> B --> F
+    D2 --> M
+```
+
+<a id="schema-pipeline"></a>
+
+### 🔄 Le pipeline en 5 étapes
+
+`fetch` travaille par étapes, car chaque étape a besoin du résultat de la précédente.
+
+```mermaid
+flowchart TD
+    A["Étape 1<br/>Combinaisons et lignées<br/>DrugComb, TDC, O'Neil, NCI-ALMANAC, DepMap"]
+    B["Étape 2<br/>PubChem résout les noms de médicaments"]
+    C["Étape 3<br/>ChEMBL cherche les InChIKey"]
+    D["clean<br/>construit data/parquet"]
+    E["Étape 4<br/>PubMed, requêtes bâties sur la table des médicaments"]
+    F["Étape 5<br/>Europe PMC et PubTator pour les PMID trouvés"]
+    A --> B --> C --> D --> E --> F
+```
+
+Dans chaque connecteur, les mêmes quatre étapes s'exécutent : `discover` → `fetch` → `parse` → `validate`.
+Les fichiers bruts ne sont **jamais modifiés** ; le manifeste garde le SHA-256, la taille, l'URL, la version et la licence.
+
+```mermaid
+flowchart LR
+    H["Client HTTP<br/>limites de débit, reprises, cache,<br/>robots.txt, coupe-circuit"] --> R["data/raw<br/>fichiers tels que téléchargés"]
+    R --> I["data/interim<br/>une table validée par source"]
+    I --> Q["nettoyage<br/>smiles, drugs, cell_lines,<br/>pairs, scores"]
+    Q --> T["data/parquet<br/>synergy_pairs, drugs, cell_lines,<br/>expression, abstracts"]
+    R -.empreinte.-> MF["manifest.json<br/>LICENSES.md"]
+```
+
+<a id="schema-application"></a>
+
+### 🖥️ Application web
+
+```mermaid
+flowchart LR
+    U["Navigateur"] -->|"/api (proxy de dev)"| FE["Frontend React<br/>localhost:5173"]
+    FE --> BE["Backend FastAPI<br/>127.0.0.1:8000"]
+    BE --> DB[("app.db<br/>utilisateurs et sessions")]
+    BE -->|"lecture seule"| PQ["data/parquet"]
+    BE --> PUB["/api/public/summary<br/>seule donnée lisible sans compte"]
+```
+
+| Partie | Responsabilité |
+|---|---|
+| 🌍 Page d'introduction publique | Affiche seulement la taille des tables, sans compte |
+| 🔐 Connexion / inscription | Un nouveau compte est toujours un utilisateur simple |
+| 👤 Pages utilisateur (`/home`) | Accueil, médicaments, lignées, profil |
+| 🛡️ Pages admin (`/admin`) | Tableau de bord, création d'administrateurs, rôles, mots de passe, désactivation et suppression |
+| 🍪 Session | Cookie `HttpOnly` lié à une ligne en base : désactiver un compte le déconnecte aussitôt |
+| ✅ Autorisation | Le rôle est vérifié par l'API à chaque requête |
+
+### 🧠 Couche de modélisation 🟡 *prévue*
+
+> [!WARNING]
+> Cette couche **n'existe pas encore** dans ce dépôt. Elle lira `data/parquet` et comparera quatre modèles sous trois protocoles de validation, pour isoler l'effet de la littérature.
+
+```mermaid
+flowchart LR
+    T["data/parquet"] --> SP["3 découpages<br/>paire, médicament, lignée inconnus"]
+    SP --> M1["LightGBM<br/>baseline"]
+    SP --> M2["MLP<br/>type DeepSynergy"]
+    SP --> M3["GNN<br/>type DeepDDS"]
+    SP --> M4["Fusion V3<br/>GNN + cellule + littérature"]
+    M1 --> E["Évaluation<br/>RMSE, MAE, Pearson, AUROC, AUPRC"]
+    M2 --> E
+    M3 --> E
+    M4 --> E
+    E --> OUT["Score, classe,<br/>intervalle d'incertitude"]
+```
+
+| Version | Entrées | Question posée |
+|---|---|---|
+| **V1** | Chimie seule | Que vaut la structure moléculaire seule ? |
+| **V2** | Chimie + lignée | Qu'apporte le profil de la cellule ? |
+| **V3** 🔬 | Chimie + lignée + littérature | **Les connaissances PubMed aident-elles, surtout pour un médicament jamais vu ?** |
+
+La différence **V3 − V2**, répétée sur plusieurs graines, est le résultat scientifique principal.
+Positif, nul ou négatif : tout est acceptable s'il est rapporté avec des chiffres.
+
+> [!CAUTION]
+> Les prédictions sont des **hypothèses in silico** à valider en laboratoire. Ce n'est jamais un conseil médical.
+
+---
+
+<a id="ce-que-vous-obtenez"></a>
+
+## 📦 Ce que vous obtenez
+
+Tout ce que produit le pipeline est dans **un seul dossier**, `data/`, avec un sous-dossier par format.
+L'extension du fichier indique où il se trouve.
 
 ```
 data/
-  parquet/   the tables to model on
-  csv/       coverage, conflicts, review queues, sentences to label
-  json/      files for the frontend
-  reports/   the data quality report (Markdown and HTML), the annotation guide
+  parquet/   les tables pour modéliser
+  csv/       couverture, conflits, files de relecture, phrases à annoter
+  json/      fichiers pour le frontend
+  reports/   rapport qualité (Markdown et HTML), guide d'annotation
 
-  raw/       files exactly as downloaded, per source      interim/   one validated table per source
-  manual/    files you place yourself                     cache/ state/   bookkeeping
+  raw/       fichiers tels que téléchargés, par source     interim/   une table validée par source
+  manual/    fichiers que vous déposez vous-même           cache/ state/   suivi interne
 ```
 
-| File | Content |
+<details>
+<summary><b>📋 Détail des fichiers produits</b></summary>
+
+| Fichier | Contenu |
 |---|---|
-| `data/parquet/synergy_pairs.parquet` | One row per drug pair, cell line, source and study. Bliss, Loewe, HSA and ZIP in separate columns |
-| `data/parquet/drugs.parquet` | One row per drug: standardised SMILES, InChIKey, PubChem CID, ChEMBL ID, synonyms, validity flag |
-| `data/parquet/cell_lines.parquet` | Names, tissue, DepMap identifier |
-| `data/parquet/expression.parquet` | Expression matrix for the cell lines in use |
-| `data/parquet/abstracts.parquet`, `candidate_sentences.parquet` | PubMed abstracts, and sentences mentioning two or more drugs |
-| `data/csv/coverage.csv`, `conflicts.csv`, `source_agreement.csv` | Distinct drugs and cell lines per source; records that disagree; agreement between sources |
-| `data/csv/drug_review_queue.csv`, `cell_line_review_queue.csv` | Names a person should check |
-| `data/csv/sample_sentences.csv` | Stratified sentences to label by hand (also `data/json/sample_sentences.jsonl`) |
-| `data/json/*.json` | `drugs.json`, `cell_lines.json`, `mock_predictions_seed.json`, `citations.json` for the frontend |
-| `data/reports/data_quality.md` / `.html` | The data quality report; `annotation_guide.md` explains the labels |
-| `manifest.json`, `LICENSES.md` | SHA-256, size, URL, version, retrieval time and licence of every file |
+| `data/parquet/synergy_pairs.parquet` | Une ligne par paire de médicaments, lignée, source et étude. Bliss, Loewe, HSA et ZIP dans des colonnes séparées |
+| `data/parquet/drugs.parquet` | Une ligne par médicament : SMILES standardisé, InChIKey, PubChem CID, ChEMBL ID, synonymes, indicateur de validité |
+| `data/parquet/cell_lines.parquet` | Noms, tissu, identifiant DepMap |
+| `data/parquet/expression.parquet` | Matrice d'expression des lignées utilisées |
+| `data/parquet/abstracts.parquet`, `candidate_sentences.parquet` | Résumés PubMed, et phrases citant au moins deux médicaments |
+| `data/csv/coverage.csv`, `conflicts.csv`, `source_agreement.csv` | Médicaments et lignées distincts par source ; enregistrements en désaccord ; accord entre sources |
+| `data/csv/drug_review_queue.csv`, `cell_line_review_queue.csv` | Noms qu'une personne doit vérifier |
+| `data/csv/sample_sentences.csv` | Phrases stratifiées à annoter à la main (aussi `data/json/sample_sentences.jsonl`) |
+| `data/json/*.json` | `drugs.json`, `cell_lines.json`, `mock_predictions_seed.json`, `citations.json` pour le frontend |
+| `data/reports/data_quality.md` / `.html` | Rapport qualité ; `annotation_guide.md` explique les étiquettes |
+| `manifest.json`, `LICENSES.md` | SHA-256, taille, URL, version, date de récupération et licence de chaque fichier |
 
-Every column is explained in [docs/DATA_DICTIONARY.md](docs/DATA_DICTIONARY.md).
+</details>
 
-`data/raw` and `data/interim` are the pipeline's working folders and keep one sub-folder per
-source. `manifest.json` and `LICENSES.md` sit next to `data/` rather than inside it: they
-hold no data, they describe the folder, and unlike `data/` they can be committed.
-`--data-dir` moves the whole folder; `parquet_dir`, `csv_dir`, `json_dir` and `reports_dir`
-in `config.yaml` can point one format elsewhere.
+📖 Chaque colonne est expliquée dans [docs/DATA_DICTIONARY.md](docs/DATA_DICTIONARY.md).
 
-## Setup
+`data/raw` et `data/interim` sont les dossiers de travail du pipeline, avec un sous-dossier par source.
+`manifest.json` et `LICENSES.md` sont à côté de `data/` : ils ne contiennent pas de données, ils
+décrivent le dossier, et contrairement à `data/` ils peuvent être commités.
+`--data-dir` déplace tout le dossier ; `parquet_dir`, `csv_dir`, `json_dir` et `reports_dir`
+dans `config.yaml` permettent de déplacer un seul format.
 
-Requires Python 3.11 or newer.
+---
+
+<a id="installation"></a>
+
+## ⚙️ Installation
+
+Python **3.11 ou plus récent** requis.
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate            # Windows PowerShell: .venv\Scripts\Activate.ps1
+source .venv/bin/activate            # Windows PowerShell : .venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
-cp .env.example .env                 # then edit .env
+cp .env.example .env                 # puis modifier .env
 ```
 
-Put two values in `.env` (it is git-ignored and never logged):
+Renseignez deux valeurs dans `.env` (ignoré par git, jamais écrit dans les logs) :
 
-- `CONTACT_EMAIL`: sent in the User-Agent so a provider can reach you. **Required**: live
-  requests are refused without it.
-- `NCBI_API_KEY`: optional, free from your NCBI account settings. Raises the E-utilities
-  limit from about 3 to about 10 requests per second.
+| Variable | Obligatoire | Rôle |
+|---|---|---|
+| `CONTACT_EMAIL` | ✅ **oui** | Envoyé dans le User-Agent pour que les fournisseurs puissent vous joindre. Sans elle, les requêtes réelles sont refusées |
+| `NCBI_API_KEY` | ➖ optionnelle | Gratuite depuis votre compte NCBI. Passe la limite E-utilities d'environ 3 à environ 10 requêtes par seconde |
 
-Then check the machine:
+Puis vérifiez la machine :
 
 ```bash
-synergyrx preflight
+tujya preflight
 ```
 
-## Running it
+---
+
+<a id="utilisation"></a>
+
+## ▶️ Utilisation
 
 ```bash
-synergyrx fetch --sample 100 --dry-run   # print the plan; requests and writes nothing
-synergyrx fetch --sample 100             # small sample of every enabled source
-synergyrx fetch                          # full run (about 740 MB for stage 1)
-synergyrx clean                          # build the processed tables (data/parquet)
-synergyrx fetch --source pubmed --source europepmc
-synergyrx literature                     # abstracts, candidate sentences, annotation sample
-synergyrx report                         # quality report, coverage, conflicts, LICENSES.md
-synergyrx export                         # frontend JSON
-synergyrx summary                        # final report of everything collected
+tujya fetch --sample 100 --dry-run   # affiche le plan, ne fait aucune requête ni écriture
+tujya fetch --sample 100             # petit échantillon de chaque source activée
+tujya fetch                          # exécution complète (environ 740 Mo pour l'étape 1)
+tujya clean                          # construit les tables nettoyées (data/parquet)
+tujya fetch --source pubmed --source europepmc
+tujya literature                     # résumés, phrases candidates, échantillon à annoter
+tujya report                         # rapport qualité, couverture, conflits, LICENSES.md
+tujya export                         # JSON pour le frontend
+tujya summary                        # rapport final de tout ce qui a été collecté
 ```
 
-Or everything in one go, incrementally: `synergyrx update`.
+⚡ Ou tout en une fois, de façon incrémentale : `tujya update`.
 
-`fetch` runs in stages, because later sources need earlier results:
+Les étapes de `fetch` (voir le [schéma du pipeline](#schema-pipeline)) :
 
-1. Drug combinations and cell lines: DrugComb, TDC, O'Neil, NCI-ALMANAC, DepMap.
-2. PubChem resolves the drug names found in stage 1.
-3. ChEMBL looks up the InChIKeys PubChem returned.
-4. PubMed, with queries built from the cleaned drug table (so run `clean` first).
-5. Europe PMC (open-access status) and PubTator, for the PMIDs PubMed returned.
+1. Combinaisons de médicaments et lignées : DrugComb, TDC, O'Neil, NCI-ALMANAC, DepMap.
+2. PubChem résout les noms de médicaments trouvés à l'étape 1.
+3. ChEMBL cherche les InChIKey renvoyés par PubChem.
+4. PubMed, avec des requêtes bâties sur la table nettoyée des médicaments (**lancez donc `clean` avant**).
+5. Europe PMC (accès libre) et PubTator, pour les PMID renvoyés par PubMed.
 
-### Commands
+<details>
+<summary><b>🧰 Toutes les commandes</b></summary>
 
-| Command | What it does |
+| Commande | Ce qu'elle fait |
 |---|---|
-| `sources` | List sources, licences and state. `--check` probes every link and rewrites `docs/SOURCES.md` |
-| `fetch` | Download, parse and validate into `data/raw` and `data/interim`. `--source`, `--sample N`, `--dry-run`, `--refresh` |
-| `validate` | Re-check raw file hashes against the manifest and interim rows against their schemas |
-| `clean` | Build the processed tables in `data/parquet` |
-| `literature` | Abstract store, sentence segmentation, drug mentions, annotation sample |
-| `report` | Quality report, coverage, conflicts, licence registry |
-| `export` | Frontend JSON |
-| `status` | State of every connector and what is on disk |
-| `summary` | Final report of everything collected (`--json` for machines) |
-| `preflight` | Disk space, permissions, identity, tooling |
-| `update` | All of the above, incrementally. For cron or CI |
+| `sources` | Liste les sources, licences et états. `--check` teste chaque lien et réécrit `docs/SOURCES.md` |
+| `fetch` | Télécharge, analyse et valide dans `data/raw` et `data/interim`. Options : `--source`, `--sample N`, `--dry-run`, `--refresh` |
+| `validate` | Revérifie les empreintes des fichiers bruts contre le manifeste et les lignes interim contre leurs schémas |
+| `clean` | Construit les tables nettoyées dans `data/parquet` |
+| `literature` | Stock de résumés, segmentation en phrases, mentions de médicaments, échantillon d'annotation |
+| `report` | Rapport qualité, couverture, conflits, registre des licences |
+| `export` | JSON pour le frontend |
+| `status` | État de chaque connecteur et contenu du disque |
+| `summary` | Rapport final de tout ce qui a été collecté (`--json` pour les machines) |
+| `preflight` | Espace disque, permissions, identité, outils |
+| `update` | Tout ce qui précède, de façon incrémentale. Pour cron ou CI |
 
-Global options go before the command: `--config`, `--set key=value`, `--data-dir`,
-`--log-level`, `--text-logs`. Any setting in `config.yaml` can be overridden:
+Les options globales se placent avant la commande : `--config`, `--set clé=valeur`, `--data-dir`,
+`--log-level`, `--text-logs`. Tout réglage de `config.yaml` peut être remplacé :
 
 ```bash
-synergyrx --set sources.tdc.enabled=false --set "http.hosts[zenodo.org].rate=0.05" fetch
+tujya --set sources.tdc.enabled=false --set "http.hosts[zenodo.org].rate=0.05" fetch
 ```
 
-Logs are JSON lines on stderr; tables and reports go to stdout.
+Les logs sont des lignes JSON sur stderr ; les tables et rapports vont sur stdout.
 
-### Second runs are cheap
+</details>
 
-Nothing is downloaded or duplicated twice. Raw files are skipped when their hash matches the
-manifest, API answers are cached on disk and revalidated with ETag / Last-Modified, lookups
-(including "not found") are remembered, interrupted downloads resume with an HTTP Range
-request, and PubMed is only asked for records entered since the previous run.
+### 💸 Les relances sont peu coûteuses
 
-## Sources
+Rien n'est téléchargé ni dupliqué deux fois :
 
-| Source | Access | On by default | Licence |
+- les fichiers bruts sont ignorés si leur empreinte correspond au manifeste ;
+- les réponses d'API sont en cache et revalidées avec ETag / Last-Modified ;
+- les recherches (y compris « introuvable ») sont mémorisées ;
+- les téléchargements interrompus reprennent avec une requête HTTP Range ;
+- PubMed n'est interrogé que pour les notices ajoutées depuis la dernière exécution.
+
+---
+
+<a id="sources"></a>
+
+## 📚 Sources
+
+| Source | Accès | Activée par défaut | Licence |
 |---|---|---|---|
-| DrugComb v1.4 | Zenodo bulk file, pinned | yes | CC BY 4.0 |
-| TDC DrugSyn | Harvard Dataverse file (loaded with PyTDC when installed) | yes | CC BY 4.0 |
-| O'Neil / DeepSynergy | bulk CSV | yes | none stated: research use, do not redistribute |
-| NCI-ALMANAC | **manual download** | yes | US Government work |
-| DepMap / CCLE 24Q4 | Figshare+ API and files | yes | CC BY 4.0 |
-| PubChem | PUG-REST API | yes | public domain |
-| ChEMBL | web services API | yes | CC BY-SA 3.0 |
-| PubMed | E-utilities API | yes | NLM terms |
-| Europe PMC | REST API | yes | Europe PMC terms |
-| GDSC (Cell Model Passports) | bulk file | no | not verified |
-| DDInter | bulk CSV, gated | no | CC BY-NC-SA 4.0 |
-| DrugBank | **file you supply** | no | DrugBank licence |
-| PubMed baseline | bulk XML, very large, **manual download** | no | NLM terms |
-| PubTator 3 | API | no | public domain |
+| **DrugComb v1.4** | Fichier Zenodo, version fixée | ✅ | CC BY 4.0 |
+| **TDC DrugSyn** | Fichier Harvard Dataverse (chargé avec PyTDC si installé) | ✅ | CC BY 4.0 |
+| **O'Neil / DeepSynergy** | CSV | ✅ | aucune indiquée : usage de recherche, ne pas redistribuer |
+| **NCI-ALMANAC** | ✋ **téléchargement manuel** | ✅ | Travail du gouvernement américain |
+| **DepMap / CCLE 24Q4** | API et fichiers Figshare+ | ✅ | CC BY 4.0 |
+| **PubChem** | API PUG-REST | ✅ | domaine public |
+| **ChEMBL** | API web services | ✅ | CC BY-SA 3.0 |
+| **PubMed** | API E-utilities | ✅ | conditions NLM |
+| **Europe PMC** | API REST | ✅ | conditions Europe PMC |
+| GDSC (Cell Model Passports) | fichier | ⬜ | non vérifiée |
+| DDInter | CSV, accès conditionné | ⬜ | CC BY-NC-SA 4.0 |
+| DrugBank | ✋ **fichier que vous fournissez** | ⬜ | licence DrugBank |
+| PubMed baseline | XML très volumineux, ✋ **téléchargement manuel** | ⬜ | conditions NLM |
+| PubTator 3 | API | ⬜ | domaine public |
 
-Link statuses, endpoints, rate limits and what was found for each source are in
-[docs/SOURCES.md](docs/SOURCES.md). Licences and citations are in `LICENSES.md`.
+🔗 États des liens, points d'accès, limites de débit et résultats par source : [docs/SOURCES.md](docs/SOURCES.md).
+Licences et citations : `LICENSES.md`.
 
-### Manual steps
+### ✋ Étapes manuelles
 
-- **NCI-ALMANAC.** robots.txt of `wiki.nci.nih.gov` disallows automated downloads. Open the
-  [NCI-ALMANAC page](https://wiki.nci.nih.gov/spaces/NCIDTPdata/pages/338237347/NCI-ALMANAC)
-  in a browser and save `ComboDrugGrowth_Nov2017.zip` (and, optionally,
-  `ComboCompoundNames_small.txt`) into `data/manual/nci_almanac/`, then run `fetch` again.
-- **PubMed baseline** (optional). `ftp.ncbi.nlm.nih.gov` disallows automated clients in
-  robots.txt. Download the files you listed in `sources.pubmed_baseline.options.files`
-  yourself and save them into `data/manual/pubmed_baseline/`.
-- **DrugBank.** Never downloaded. If you hold a licence, save the vocabulary export as
-  `data/manual/drugbank/drugbank vocabulary.csv` and set `sources.drugbank.enabled: true`.
-- **DDInter.** Read its [terms](https://ddinter2.scbdd.com/terms/) (non-commercial,
-  share-alike), then set `sources.ddinter.enabled: true` and `terms_acknowledged: true`.
-- **TDC through PyTDC.** PyTDC only installs on Python 3.11 / 3.12:
-  `pip install -e ".[tdc]"`. Without it the same file is read by a built-in loader.
-- **Unresolved drugs and cell lines.** Work through `data/csv/drug_review_queue.csv` and
-  `data/csv/cell_line_review_queue.csv`, record decisions in
-  `config/manual_drug_overrides.csv` and `config/cell_line_aliases.csv`, and run `clean`.
+> [!IMPORTANT]
+> Certaines sources interdisent le téléchargement automatisé. Le pipeline ne contourne **jamais** ces règles.
 
-## How it behaves on the network
+- **NCI-ALMANAC.** Le robots.txt de `wiki.nci.nih.gov` interdit les téléchargements automatiques. Ouvrez la
+  [page NCI-ALMANAC](https://wiki.nci.nih.gov/spaces/NCIDTPdata/pages/338237347/NCI-ALMANAC)
+  dans un navigateur, enregistrez `ComboDrugGrowth_Nov2017.zip` (et, en option,
+  `ComboCompoundNames_small.txt`) dans `data/manual/nci_almanac/`, puis relancez `fetch`.
+- **PubMed baseline** (optionnel). `ftp.ncbi.nlm.nih.gov` interdit les clients automatisés dans son
+  robots.txt. Téléchargez vous-même les fichiers listés dans `sources.pubmed_baseline.options.files`
+  et placez-les dans `data/manual/pubmed_baseline/`.
+- **DrugBank.** Jamais téléchargé. Si vous avez une licence, enregistrez l'export du vocabulaire sous
+  `data/manual/drugbank/drugbank vocabulary.csv` et mettez `sources.drugbank.enabled: true`.
+- **DDInter.** Lisez ses [conditions](https://ddinter2.scbdd.com/terms/) (non commercial,
+  partage à l'identique), puis mettez `sources.ddinter.enabled: true` et `terms_acknowledged: true`.
+- **TDC via PyTDC.** PyTDC s'installe seulement sur Python 3.11 / 3.12 :
+  `pip install -e ".[tdc]"`. Sans lui, le même fichier est lu par un chargeur intégré.
+- **Médicaments et lignées non résolus.** Traitez `data/csv/drug_review_queue.csv` et
+  `data/csv/cell_line_review_queue.csv`, notez vos décisions dans
+  `config/manual_drug_overrides.csv` et `config/cell_line_aliases.csv`, puis relancez `clean`.
 
-- Identifies itself: `synergyrx-data/<version> (research data pipeline; mailto:<you>)`.
-- Per-host token-bucket rate limits and connection caps, run at 90 % of each limit; a
-  robots.txt `Crawl-delay` always wins when it is slower.
-- Exponential backoff with jitter; honours `Retry-After`, 429 and 503.
-- A circuit breaker pauses a source that keeps failing.
-- Timeouts, maximum response sizes and content-type checks on every response.
-- robots.txt is checked before any HTML page or bulk file is requested.
-- A 401 / 403, CAPTCHA, login page or bot check stops the source. It is reported as
-  "needs attention" and never retried or worked around.
-- No cookies, no credentials, no proxies, no browser impersonation.
+---
 
-A source that fails does not stop the run: the others continue and `status` shows which one
-needs attention and why. `fetch` and `update` exit non-zero in that case.
+<a id="comportement-reseau"></a>
 
-## Scheduling
+## 🌐 Comportement réseau
 
-`synergyrx update` is safe to run repeatedly. Examples:
-[docs/examples/crontab.txt](docs/examples/crontab.txt) and
+| Règle | Détail |
+|---|---|
+| 🪪 Identification | `tujya-data/<version> (research data pipeline; mailto:<vous>)` |
+| 🚦 Débit | Limites par hôte (token bucket) et plafonds de connexions, à 90 % de chaque limite ; un `Crawl-delay` du robots.txt l'emporte s'il est plus lent |
+| 🔁 Reprises | Backoff exponentiel avec gigue ; respecte `Retry-After`, 429 et 503 |
+| 🔌 Coupe-circuit | Met en pause une source qui échoue sans cesse |
+| 🧱 Garde-fous | Délais d'attente, tailles maximales et contrôle du type de contenu sur chaque réponse |
+| 🤖 robots.txt | Vérifié avant toute page HTML ou fichier volumineux |
+| 🛑 Blocage | Un 401 / 403, CAPTCHA, page de connexion ou contrôle anti-robot arrête la source : elle passe en « needs attention », jamais relancée ni contournée |
+| 🚫 Interdits | Pas de cookies, pas d'identifiants, pas de proxys, pas d'imitation de navigateur |
+
+Une source en échec n'arrête pas l'exécution : les autres continuent et `status` indique laquelle
+demande attention et pourquoi. `fetch` et `update` se terminent alors avec un code non nul.
+
+---
+
+<a id="planification-et-docker"></a>
+
+## ⏰ Planification et Docker
+
+`tujya update` peut être relancé sans risque. Exemples :
+[docs/examples/crontab.txt](docs/examples/crontab.txt) et
 [docs/examples/github-actions-update.yml](docs/examples/github-actions-update.yml).
 
-## Docker
-
 ```bash
-docker build -t synergyrx-data .
-docker run --rm --env-file .env -v "$PWD/data:/app/data" synergyrx-data fetch --sample 100
+docker build -t tujya-data .
+docker run --rm --env-file .env -v "$PWD/data:/app/data" tujya-data fetch --sample 100
 ```
 
-Add `--build-arg INSTALL_TDC=1` to include PyTDC. Secrets are passed at run time and are
-not part of the image.
+Ajoutez `--build-arg INSTALL_TDC=1` pour inclure PyTDC. Les secrets sont passés à l'exécution et
+ne font pas partie de l'image.
 
-## Web app
+---
 
-A FastAPI backend (`backend/`) and a React frontend (`frontend/`) on top of the processed
-tables. They are separate from the pipeline: the backend has its own virtual environment and
-only ever reads the tables in `data/parquet`.
+<a id="application-web"></a>
+
+## 🖥️ Application web
+
+Un backend **FastAPI** (`backend/`) et un frontend **React** (`frontend/`) au-dessus des tables nettoyées
+(voir le [schéma de l'application](#schema-application)). Ils sont séparés du pipeline : le backend a son propre
+environnement virtuel et lit uniquement les tables de `data/parquet`.
 
 ```bash
-# Terminal 1: API on http://127.0.0.1:8000 (interactive docs at /api/docs)
+# Terminal 1 : API sur http://127.0.0.1:8000 (documentation interactive sur /api/docs)
 cd backend
 python -m venv .venv
-.venv\Scripts\Activate.ps1           # Linux / macOS: source .venv/bin/activate
+.venv\Scripts\Activate.ps1           # Linux / macOS : source .venv/bin/activate
 pip install -r requirements-dev.txt
 uvicorn app.main:app --reload
 
-# Terminal 2: site on http://localhost:5173
+# Terminal 2 : site sur http://localhost:5173
 cd frontend
 npm install
 npm run dev
 ```
 
-Open <http://localhost:5173>. The dev server forwards `/api` to the backend, so the browser
-talks to a single origin. Visitors first see a public introduction page; it shows the table
-sizes (`/api/public/summary`), which is the only data readable without an account.
+Ouvrez <http://localhost:5173>. Le serveur de développement redirige `/api` vers le backend : le navigateur
+ne parle qu'à une seule origine. Les visiteurs voient d'abord une page d'introduction publique ; elle affiche la
+taille des tables (`/api/public/summary`), seule donnée lisible sans compte.
 
-The site is branded **Tujya**. The logo files in `frontend/src/assets/` and the favicon are
-cut from `photo.png`, the name is in `frontend/src/brand.ts`, and the colours, all taken from
-the logo, are the tokens at the top of `frontend/src/styles.css`.
+🎨 Le site porte la marque **Tujya**. Les logos de `frontend/src/assets/` et le favicon sont découpés dans
+`photo.png`, le nom est dans `frontend/src/brand.ts`, et les couleurs, toutes tirées du logo, sont les variables
+en haut de `frontend/src/styles.css`.
 
-The first start creates two accounts in `backend/app.db`:
+### 🔑 Comptes créés au premier démarrage (dans `backend/app.db`)
 
-| Email | Password | Lands on |
+| Email | Mot de passe | Arrive sur |
 |---|---|---|
-| `admin@gmail.com` | `admin` | `/admin`: dashboard and user management |
-| `user@gmail.com` | `user` | `/home`: home page, drugs, cell lines, profile |
+| `admin@gmail.com` | `admin` | `/admin` : tableau de bord et gestion des utilisateurs |
+| `user@gmail.com` | `user` | `/home` : accueil, médicaments, lignées, profil |
 
-**Change the administrator password before anyone else can reach the server** (Admin, then
-My account). The API prints a warning at every start until you do. To start with other
-credentials, copy `backend/.env.example` to `backend/.env` before the first start.
+> [!CAUTION]
+> **Changez le mot de passe administrateur avant que quiconque puisse atteindre le serveur** (Admin, puis
+> Mon compte). L'API affiche un avertissement à chaque démarrage tant qu'il n'est pas changé.
+> Pour démarrer avec d'autres identifiants, copiez `backend/.env.example` vers `backend/.env` avant le premier démarrage.
 
-- Anyone can sign up; a new account is always a regular user. Only an administrator can
-  create administrators, change roles, reset passwords, deactivate or delete accounts.
-- Passwords are stored as Argon2 hashes and can be replaced but never read back. New
-  passwords need at least 8 characters.
-- The session is an `HttpOnly` cookie backed by a row in the database, so resetting a
-  password or deactivating an account signs that user out immediately.
-- The role is checked by the API on every request; hiding a page in the frontend is only
-  for convenience.
+**Règles de sécurité**
 
-Checks: `python -m pytest` in `backend/` (API tests on a temporary database), and
-`npm run build` in `frontend/` (type check and production build).
+- 👥 Tout le monde peut s'inscrire ; un nouveau compte est toujours un utilisateur simple. Seul un administrateur
+  peut créer des administrateurs, changer les rôles, réinitialiser les mots de passe, désactiver ou supprimer des comptes.
+- 🔒 Les mots de passe sont stockés en hachage Argon2 : on peut les remplacer, jamais les relire. Minimum 8 caractères.
+- 🍪 La session est un cookie `HttpOnly` lié à une ligne en base : réinitialiser un mot de passe ou désactiver un
+  compte déconnecte l'utilisateur immédiatement.
+- ✅ Le rôle est vérifié par l'API à chaque requête ; masquer une page dans le frontend ne sert qu'au confort.
 
-## Development
+Vérifications : `python -m pytest` dans `backend/` (tests d'API sur une base temporaire), et
+`npm run build` dans `frontend/` (contrôle des types et build de production).
+
+---
+
+<a id="developpement"></a>
+
+## 🛠️ Développement
 
 ```bash
-make check        # lint, type check, unit tests (mocked HTTP, no network)
-make live         # optional smoke tests against the real services, tiny samples
+make check        # lint, typage, tests unitaires (HTTP simulé, sans réseau)
+make live         # tests de fumée optionnels sur les vrais services, petits échantillons
 pre-commit install
 ```
 
-Without `make` (plain Windows): `python -m ruff check src tests`, `python -m mypy`,
+Sans `make` (Windows simple) : `python -m ruff check src tests`, `python -m mypy`,
 `python -m pytest tests/unit`, `python -m pytest tests/live -m live`.
 
-Adding a source means writing one `Connector` subclass (`discover`, `fetch`, `parse`,
-`validate`) and registering it in `src/synergyrx_data/connectors/__init__.py`. Read
-[docs/CODE_REVIEW.md](docs/CODE_REVIEW.md) first.
+➕ **Ajouter une source** = écrire une sous-classe `Connector` (`discover`, `fetch`, `parse`,
+`validate`) et l'enregistrer dans `src/tujya_data/connectors/__init__.py`. Lisez
+d'abord [docs/CODE_REVIEW.md](docs/CODE_REVIEW.md).
 
-## Layout
+---
+
+<a id="structure-du-depot"></a>
+
+## 🗂️ Structure du dépôt
 
 ```
-config.yaml              settings (no secrets)        .env        secrets (git-ignored)
-src/synergyrx_data/
+config.yaml              réglages (sans secrets)       .env        secrets (ignoré par git)
+src/tujya_data/
   cli.py  pipeline.py  build.py  config.py  manifest.py
   http/         client, ratelimit, retry, cache, robots, circuit, guardrails
-  connectors/   one module per source
+  connectors/   un module par source
   cleaning/     smiles, drugs, cell_lines, pairs, scores
   literature/   queries, abstracts, sentences, mentions, annotation_export
   quality/      reports, drift, licenses, linkcheck
   export/       frontend
-tests/unit/     mocked HTTP        tests/live/   optional smoke tests
-backend/app/    FastAPI: accounts, sessions, admin routes, read access to data/parquet
-frontend/src/   React: introduction, sign in / sign up, user pages, admin pages
-data/           everything produced, by format: parquet, csv, json, reports; and the working
-                folders raw, interim, manual, cache, state   (git-ignored)
-docs/           PLAN, STATUS, DECISIONS, SOURCES, DATA_DICTIONARY, CODE_REVIEW, examples
+tests/unit/     HTTP simulé        tests/live/   tests de fumée optionnels
+backend/app/    FastAPI : comptes, sessions, routes admin, lecture de data/parquet
+frontend/src/   React : introduction, connexion / inscription, pages utilisateur, pages admin
+data/           tout ce qui est produit, par format : parquet, csv, json, reports ; et les
+                dossiers de travail raw, interim, manual, cache, state   (ignoré par git)
+docs/           PLAN, STATUS, DECISIONS, SOURCES, DATA_DICTIONARY, CODE_REVIEW, exemples
 ```
+
+---
+
+## 👥 Équipe
+
+🏫 TEK-UP University · Projet de Deep Learning
+
+| 👤 Membre | 🎯 Rôle principal |
+|---|---|
+| Mohamed Raed Bouhali | à définir par l'équipe |
+| Ilef Ben Hassen | à définir par l'équipe |
+| Melek Bouabid | à définir par l'équipe |
+
+**Répartition proposée** (à valider ensemble) :
+
+| Rôle | Responsabilités |
+|---|---|
+| 🧹 **A · Données et Machine Learning** | Collecte et nettoyage, découpages de test, baselines, métriques, calibration |
+| 🧠 **B · Deep Learning** | Modèles MLP et GNN, fusion multimodale, entraînement, interprétation |
+| 📚 **C · Littérature, démo et rapport** | Extraction PubMed, application web, rédaction du rapport |
+
+---
+
+<div align="center">
+
+🚨 **Avertissement** : les résultats de ce projet sont des hypothèses de recherche in silico, à valider en laboratoire.
+Ils ne constituent en aucun cas un conseil médical.
+
+</div>

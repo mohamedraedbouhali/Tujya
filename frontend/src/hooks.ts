@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState, type DependencyList } from "react";
-import { errorMessage } from "./api";
 
 interface QueryState<T> {
   data: T | null;
-  error: string | null;
+  /** The failure itself; pass it to `err()` from useI18n to get a sentence to show. */
+  error: unknown;
   loading: boolean;
 }
 
@@ -25,7 +25,7 @@ export function useQuery<T>(load: (signal: AbortSignal) => Promise<T>, deps: Dep
       },
       (error: unknown) => {
         if (!controller.signal.aborted) {
-          setState({ data: null, error: errorMessage(error), loading: false });
+          setState({ data: null, error: error ?? new Error("failed"), loading: false });
         }
       },
     );

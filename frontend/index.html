@@ -3,7 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#145788" />
     <meta
       name="description"
@@ -11,6 +10,29 @@
     />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <title>Tujya</title>
+    <!-- Applied before the first paint, so a dark-mode or Arabic visitor never sees the page
+         flash in light mode or left-to-right. The app (src/theme.tsx, src/i18n) takes over
+         from here; keep the two storage keys in sync with those files. -->
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var theme = null;
+        var lang = null;
+        try {
+          theme = localStorage.getItem("tujya.theme");
+          lang = localStorage.getItem("tujya.lang");
+        } catch (blocked) {}
+        if (theme !== "light" && theme !== "dark") {
+          theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        root.dataset.theme = theme;
+        if (lang !== "en" && lang !== "fr" && lang !== "ar") {
+          lang = (navigator.language || "en").slice(0, 2).toLowerCase();
+        }
+        if (lang === "ar") root.dir = "rtl";
+        if (lang === "en" || lang === "fr" || lang === "ar") root.lang = lang;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

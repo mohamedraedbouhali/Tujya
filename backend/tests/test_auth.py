@@ -104,6 +104,46 @@ def test_update_own_name(user: TestClient) -> None:
     assert user.get("/api/auth/me").json()["full_name"] == "Renamed User"
 
 
+def test_change_own_email_needs_the_current_password(
+    user: TestClient, browser: Callable[[], TestClient]
+) -> None:
+    new_email = {"email": "Demo.New@Mail.com"}
+    assert user.patch("/api/auth/me", json=new_email).status_code == 400
+    wrong = user.patch("/api/auth/me", json={**new_email, "current_password": "nope"})
+    assert wrong.status_code == 400
+    assert user.get("/api/auth/me").json()["email"] == USER["email"]
+
+    taken = user.patch("/api/auth/me", json={"email": ADMIN["email"], "current_password": "user"})
+    assert taken.status_code == 409
+    invalid = user.patch("/api/auth/me", json={"email": "nope", "current_password": "user"})
+    assert invalid.status_code == 422
+
+    ok = user.patch(
+        "/api/auth/me",
+        json={**new_email, "full_name": "Demo New", "current_password": "user"},
+    )
+    assert ok.status_code == 200, ok.text
+    assert (ok.json()["email"], ok.json()["full_name"]) == ("demo.new@mail.com", "Demo New")
+    assert user.get("/api/auth/me").status_code == 200  # still signed in
+    assert browser().post("/api/auth/login", json=USER).status_code == 401  # old email is gone
+    sign_in(browser(), {"email": "demo.new@mail.com", "password": "user"})
+
+
+def test_keeping_the_same_email_needs_no_password(user: TestClient) -> None:
+    same = user.patch("/api/auth/me", json={"email": "USER@gmail.com", "full_name": "Same Mail"})
+    assert same.status_code == 200
+    assert same.json()["full_name"] == "Same Mail"
+
+
+def test_a_user_cannot_edit_their_own_role_or_status(user: TestClient) -> None:
+    response = user.patch(
+        "/api/auth/me", json={"full_name": "Sneaky", "role": "admin", "is_active": False}
+    )
+    assert response.status_code == 200
+    me = user.get("/api/auth/me").json()
+    assert (me["role"], me["is_active"]) == ("user", True)
+
+
 def test_change_own_password(user: TestClient, browser: Callable[[], TestClient]) -> None:
     other_browser = sign_in(browser(), USER)
     new_password = "a-much-better-one"

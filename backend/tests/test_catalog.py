@@ -84,6 +84,6 @@ def test_missing_or_broken_table_is_a_503_not_a_crash(
     for path in ("/api/catalog/cell-lines", "/api/catalog/drugs"):
         response = user.get(path)
         assert response.status_code == 503, path
-        assert "synergyrx clean" in response.json()["detail"]
+        assert "tujya clean" in response.json()["detail"]
     summary = user.get("/api/public/summary").json()
     assert summary["drugs"] is None and summary["cell_lines"] is None

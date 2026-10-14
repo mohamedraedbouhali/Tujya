@@ -343,7 +343,7 @@ Stratified sample for manual labelling. The same rows are written as
 | Column | Type | Meaning |
 |---|---|---|
 | `path` | string | Project-relative path |
-| `source` | string | Connector, or `synergyrx-data:<step>` for derived files |
+| `source` | string | Connector, or `tujya-data:<step>` for derived files |
 | `layer` | string | `raw`, `manual`, `interim`, `processed`, `report` or `export` |
 | `sha256` | string | SHA-256 of the file |
 | `size_bytes` | int | File size |

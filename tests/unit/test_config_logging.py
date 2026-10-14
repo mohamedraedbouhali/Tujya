@@ -8,9 +8,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from synergyrx_data.config import ConfigError, apply_overrides, load_secrets, load_settings
-from synergyrx_data.http.client import PoliteClient
-from synergyrx_data.logging_utils import (
+from tests.conftest import FAKE_API_KEY, TEST_EMAIL
+from tujya_data.config import ConfigError, apply_overrides, load_secrets, load_settings
+from tujya_data.http.client import PoliteClient
+from tujya_data.logging_utils import (
     JsonFormatter,
     get_logger,
     log_event,
@@ -18,7 +19,6 @@ from synergyrx_data.logging_utils import (
     register_secrets,
     setup_logging,
 )
-from tests.conftest import FAKE_API_KEY, TEST_EMAIL
 
 REPO = Path(__file__).resolve().parents[2]
 

@@ -49,23 +49,23 @@ jobs:
           path: |
             data
             manifest.json
-          key: synergyrx-data-${{ github.run_id }}
-          restore-keys: synergyrx-data-
+          key: tujya-data-${{ github.run_id }}
+          restore-keys: tujya-data-
 
       - name: Preflight
-        run: synergyrx preflight
+        run: tujya preflight
 
       - name: Incremental update
         run: |
           if [ -n "${{ inputs.sample }}" ]; then
-            synergyrx update --sample "${{ inputs.sample }}"
+            tujya update --sample "${{ inputs.sample }}"
           else
-            synergyrx update
+            tujya update
           fi
 
       - name: Summary
         if: always()
-        run: synergyrx summary
+        run: tujya summary
 
       - name: Upload reports
         if: always()

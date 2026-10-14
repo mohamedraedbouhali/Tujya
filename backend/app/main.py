@@ -30,7 +30,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         engine.dispose()
 
     app = FastAPI(
-        title="SynergyRx API",
+        title="Tujya API",
         version="0.1.0",
         lifespan=lifespan,
         docs_url="/api/docs",

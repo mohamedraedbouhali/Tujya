@@ -1,4 +1,4 @@
-# SynergyRx data pipeline. Run `make help` for the list of targets.
+# Tujya data pipeline. Run `make help` for the list of targets.
 # On Windows, use Git Bash / WSL, or run the underlying commands shown here directly.
 
 PYTHON ?= python
@@ -35,40 +35,40 @@ live:  ## Optional smoke tests against the real services (tiny samples, needs .e
 	$(PYTHON) -m pytest tests/live -m live
 
 preflight:  ## Disk space, permissions, identity and tooling
-	synergyrx preflight
+	tujya preflight
 
 dry-run:  ## Show what a fetch would do, without touching anything
-	synergyrx fetch --sample $(SAMPLE) --dry-run
+	tujya fetch --sample $(SAMPLE) --dry-run
 
 sample:  ## Fetch a small sample of every enabled source
-	synergyrx fetch --sample $(SAMPLE)
+	tujya fetch --sample $(SAMPLE)
 
 fetch:  ## Fetch every enabled source in full
-	synergyrx fetch
+	tujya fetch
 
 clean-data:  ## Build the processed tables (data/parquet) from data/interim
-	synergyrx clean
+	tujya clean
 
 literature:  ## Abstract store, candidate sentences, annotation sample
-	synergyrx literature
+	tujya literature
 
 report:  ## Quality report, coverage, conflicts, LICENSES.md
-	synergyrx report
+	tujya report
 
 export:  ## Frontend JSON files
-	synergyrx export
+	tujya export
 
 update:  ## Incremental end-to-end run (what the scheduler calls)
-	synergyrx update
+	tujya update
 
 sources:  ## Probe every link and rewrite docs/SOURCES.md
-	synergyrx sources --check
+	tujya sources --check
 
 summary:  ## Final report of everything collected
-	synergyrx summary
+	tujya summary
 
 docker-build:  ## Build the container image
-	docker build -t synergyrx-data .
+	docker build -t tujya-data .
 
-docker-run:  ## Run `synergyrx update` in the container (everything stays in ./data on the host)
-	docker run --rm --env-file .env -v "$(CURDIR)/data:/app/data" synergyrx-data update
+docker-run:  ## Run `tujya update` in the container (everything stays in ./data on the host)
+	docker run --rm --env-file .env -v "$(CURDIR)/data:/app/data" tujya-data update

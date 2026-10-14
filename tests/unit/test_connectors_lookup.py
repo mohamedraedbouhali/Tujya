@@ -15,12 +15,12 @@ import pytest
 import respx
 from pydantic import SecretStr
 
-from synergyrx_data import pipeline
-from synergyrx_data.config import Settings, SourceConfig
-from synergyrx_data.connectors._synergy import synergy_frame
-from synergyrx_data.provenance import has_provenance, write_parquet
-from synergyrx_data.state import MANUAL_STEP, NEEDS_ATTENTION
 from tests.conftest import FAKE_API_KEY, TEST_EMAIL
+from tujya_data import pipeline
+from tujya_data.config import Settings, SourceConfig
+from tujya_data.connectors._synergy import synergy_frame
+from tujya_data.provenance import has_provenance, write_parquet
+from tujya_data.state import MANUAL_STEP, NEEDS_ATTENTION
 
 PUG = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound"
 CHEMBL = "https://www.ebi.ac.uk/chembl/api/data/molecule.json"
@@ -295,7 +295,7 @@ async def test_pubmed_history_search_fetch_and_flags(
 
     search = parse_qs(pubmed["esearch"].calls.last.request.content.decode())
     assert search["usehistory"] == ["y"] and search["db"] == ["pubmed"]
-    assert search["tool"] == ["synergyrx-data"] and search["email"] == [TEST_EMAIL]
+    assert search["tool"] == ["tujya-data"] and search["email"] == [TEST_EMAIL]
     assert (search["mindate"], search["datetype"]) == (["2000/01/01"], ["edat"])
     term = search["term"][0]
     assert '"Fluorouracil"[tiab]' in term and '"5-FU"[tiab]' in term and '"ABT-888"[tiab]' in term
@@ -363,7 +363,7 @@ async def test_pubmed_api_key_is_sent_but_never_stored(
     tmp_path: Path,
     capfd: pytest.CaptureFixture[str],
 ) -> None:
-    from synergyrx_data.logging_utils import setup_logging
+    from tujya_data.logging_utils import setup_logging
 
     settings.secrets.ncbi_api_key = SecretStr(FAKE_API_KEY)
     setup_logging("DEBUG", json_logs=True, secrets=settings.secrets.values_to_redact())

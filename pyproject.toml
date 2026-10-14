@@ -3,9 +3,9 @@ requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [project]
-name = "synergyrx-data"
+name = "tujya-data"
 version = "0.1.0"
-description = "Polite, reproducible data collection pipeline for SynergyRx AI (drug-combination synergy and PubMed literature)."
+description = "Polite, reproducible data collection pipeline for Tujya (drug-combination synergy and PubMed literature)."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -35,10 +35,10 @@ dev = [
 ]
 
 [project.scripts]
-synergyrx = "synergyrx_data.cli:app"
+tujya = "tujya_data.cli:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/synergyrx_data"]
+packages = ["src/tujya_data"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

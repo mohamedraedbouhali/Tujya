@@ -1,4 +1,4 @@
-"""`synergyrx update` and `synergyrx sources --check` from end to end, on a mocked network."""
+"""`tujya update` and `tujya sources --check` from end to end, on a mocked network."""
 
 from __future__ import annotations
 
@@ -13,12 +13,12 @@ import respx
 from rich.console import Console
 from typer.testing import CliRunner
 
-from synergyrx_data import cli
-from synergyrx_data.cli import app
-from synergyrx_data.connectors import all_links
-from synergyrx_data.quality.linkcheck import ENDPOINTS
 from tests.conftest import TEST_EMAIL
 from tests.unit.test_connectors_lookup import PUBMED_XML
+from tujya_data import cli
+from tujya_data.cli import app
+from tujya_data.connectors import all_links
+from tujya_data.quality.linkcheck import ENDPOINTS
 
 runner = CliRunner()
 REPO = Path(__file__).resolve().parents[2]

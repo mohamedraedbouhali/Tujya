@@ -1,4 +1,4 @@
-"""Read-only access to the tables built by the data pipeline (`synergyrx clean`).
+"""Read-only access to the tables built by the data pipeline (`tujya clean`).
 
 The pipeline may rewrite a table while the API is running, so every file is read in one
 short pass, kept in memory, and read again only when its modification time changes.

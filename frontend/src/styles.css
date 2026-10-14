@@ -3,7 +3,8 @@
    of "ya", and the teal where the wordmark blends from one to the other. */
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+  --dir: 1; /* becomes -1 in right-to-left pages; used to mirror movements */
 
   /* The logo's own colours. These stay the same in light and dark mode. */
   --brand-navy: #0a3558;
@@ -45,44 +46,64 @@
   --page-width: 1160px;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
+  /* The moving background (see .backdrop). */
+  --glow-opacity: 0.2;
+  --honeycomb-opacity: 0.11;
+  --honeycomb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 66L0 50L0 16L28 0L56 16L56 50L28 66L28 100' fill='none' stroke='%23145788'/%3E%3Cpath d='M28 0L28 34L0 50L0 84L28 100L56 84L56 50L28 34' fill='none' stroke='%23145788'/%3E%3C/svg%3E");
+
   font-family:
-    Inter, "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    Inter, "Segoe UI", system-ui, -apple-system, Roboto, "Noto Sans Arabic", "Helvetica Neue",
+    Arial, sans-serif;
   font-size: 15px;
   line-height: 1.5;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --btn-gradient: linear-gradient(120deg, #1d6fae 0%, #23808f 55%, #2b8060 100%);
+/* Dark mode. The attribute is set by the switch in the page (src/theme.tsx) and, before the
+   app starts, by the small script in index.html, from the saved choice or the system. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --btn-gradient: linear-gradient(120deg, #1d6fae 0%, #23808f 55%, #2b8060 100%);
 
-    --bg: #0a131b;
-    --surface: #111c26;
-    --surface-2: #182633;
-    --border: #213243;
-    --border-strong: #354a5e;
-    --text: #e3ecf4;
-    --heading: #f1f6fa;
-    --muted: #92a4b5;
+  --bg: #0a131b;
+  --surface: #111c26;
+  --surface-2: #182633;
+  --border: #213243;
+  --border-strong: #354a5e;
+  --text: #e3ecf4;
+  --heading: #f1f6fa;
+  --muted: #92a4b5;
 
-    --primary: #74b3e0;
-    --on-primary: #06223a;
-    --primary-soft: #133049;
-    --primary-text: #a3cff0;
+  --primary: #74b3e0;
+  --on-primary: #06223a;
+  --primary-soft: #133049;
+  --primary-text: #a3cff0;
 
-    --accent-strong: #a9d67a;
-    --accent-soft: #1b2e14;
-    --success: #a9d67a;
-    --success-soft: #1b2e14;
-    --warn: #e2b25c;
-    --danger: #f2776c;
-    --danger-hover: #f6958c;
-    --on-danger: #2a0906;
-    --danger-soft: #3a1815;
+  --accent-strong: #a9d67a;
+  --accent-soft: #1b2e14;
+  --success: #a9d67a;
+  --success-soft: #1b2e14;
+  --warn: #e2b25c;
+  --danger: #f2776c;
+  --danger-hover: #f6958c;
+  --on-danger: #2a0906;
+  --danger-soft: #3a1815;
 
-    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 2px 8px rgb(0 0 0 / 25%);
-    --shadow-lg: 0 20px 44px -14px rgb(0 0 0 / 70%);
-    --glow: 0 10px 26px -10px rgb(116 179 224 / 45%);
-  }
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 2px 8px rgb(0 0 0 / 25%);
+  --shadow-lg: 0 20px 44px -14px rgb(0 0 0 / 70%);
+  --glow: 0 10px 26px -10px rgb(116 179 224 / 45%);
+
+  --glow-opacity: 0.3;
+  --honeycomb-opacity: 0.09;
+  --honeycomb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 66L0 50L0 16L28 0L56 16L56 50L28 66L28 100' fill='none' stroke='%2374b3e0'/%3E%3Cpath d='M28 0L28 34L0 50L0 84L28 100L56 84L56 50L28 34' fill='none' stroke='%2374b3e0'/%3E%3C/svg%3E");
+}
+
+/* Arabic: the page runs right to left. Letter-spacing would break the joined script. */
+[dir="rtl"] {
+  --dir: -1;
+}
+
+[dir="rtl"] * {
+  letter-spacing: 0 !important;
 }
 
 /* ---------- motion ---------- */
@@ -168,6 +189,19 @@
   }
 }
 
+@keyframes aurora {
+  to {
+    transform: translate3d(7vw, 5vw, 0) scale(1.18);
+  }
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.45;
+    transform: scale(1.08);
+  }
+}
+
 /* Every page plays this when you arrive on it (see AppShell). */
 .page-enter {
   animation: fade-up 0.45s var(--ease) backwards;
@@ -248,18 +282,69 @@ body {
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  transition:
+    background-color 0.35s,
+    color 0.35s;
 }
 
-/* A faint wash of the two logo colours behind every page. */
-body::before {
-  content: "";
+/* ---------- the moving background ----------
+   Three soft glows in the logo's colours drift slowly over a faint honeycomb (the hexagon
+   of the molecule in the emblem), fading out down the page. See <Backdrop> in components. */
+
+.backdrop {
   position: fixed;
   inset: 0;
   z-index: -1;
+  overflow: hidden;
   pointer-events: none;
-  background:
-    radial-gradient(60vw 46vh at 0% 0%, rgb(20 87 136 / 13%), transparent 70%),
-    radial-gradient(52vw 42vh at 100% 4%, rgb(135 186 85 / 11%), transparent 70%);
+  background: var(--bg);
+  transition: background-color 0.35s;
+}
+
+.backdrop::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--honeycomb);
+  background-size: 56px 100px;
+  opacity: var(--honeycomb-opacity);
+  mask-image: radial-gradient(ellipse 95% 80% at 50% 0%, #000 25%, transparent 80%);
+}
+
+.backdrop span {
+  position: absolute;
+  border-radius: 50%;
+  opacity: var(--glow-opacity);
+  animation: aurora 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.backdrop span:nth-child(1) {
+  top: -24vw;
+  left: -16vw;
+  width: 58vw;
+  height: 58vw;
+  background: radial-gradient(circle, #145788 0%, transparent 66%);
+}
+
+.backdrop span:nth-child(2) {
+  top: -18vw;
+  right: -14vw;
+  width: 48vw;
+  height: 48vw;
+  background: radial-gradient(circle, #87ba55 0%, transparent 66%);
+  animation-duration: 32s;
+  animation-delay: -9s;
+}
+
+.backdrop span:nth-child(3) {
+  bottom: -24vw;
+  left: 26vw;
+  width: 46vw;
+  height: 46vw;
+  background: radial-gradient(circle, #2f727b 0%, transparent 66%);
+  animation-duration: 38s;
+  animation-delay: -18s;
 }
 
 h1,
@@ -332,19 +417,92 @@ a:hover {
 }
 
 /* ---------- logo ----------
-   Transparent on every background. On a dark page the browser picks logo-dark.png, whose
-   wordmark is lightened, through the <picture> element in components.tsx. */
+   Transparent on every background. In dark mode (and on the brand gradient) the component
+   uses logo-dark.png, whose wordmark is lightened: see <Logo> in components.tsx. */
 
-.logo {
-  display: inline-block;
-  flex: none;
-}
-
-.logo img,
-img.logo,
+.logo,
 .logo-mark {
   display: block;
   flex: none;
+}
+
+/* ---------- language and theme controls ---------- */
+
+.prefs {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lang-switch {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.lang-switch button {
+  min-width: 34px;
+  height: 28px;
+  padding: 0 9px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    color 0.15s;
+}
+
+.lang-switch button:hover {
+  color: var(--text);
+}
+
+.lang-switch button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--primary-text);
+  box-shadow: var(--shadow);
+}
+
+.theme-toggle {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    transform 0.45s var(--ease),
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.theme-toggle:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: rotate(45deg);
+}
+
+/* The controls in the corner of pages that have no top bar. */
+.corner-prefs {
+  position: absolute;
+  top: 18px;
+  inset-inline-end: 20px;
+  z-index: 2;
+}
+
+/* Icons that point somewhere are mirrored when the page reads right to left. */
+.icon-arrow,
+.icon-logout {
+  transform: scaleX(var(--dir));
 }
 
 /* ---------- decoration shared by the brand-coloured panels ---------- */
@@ -498,8 +656,8 @@ img.logo,
   transition: transform 0.2s var(--ease);
 }
 
-.btn-light:hover .icon {
-  transform: translateX(3px);
+.btn-light:hover .icon-arrow {
+  transform: translateX(calc(3px * var(--dir))) scaleX(var(--dir));
 }
 
 .btn-on-dark {
@@ -983,7 +1141,7 @@ input::placeholder {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 
 .user-id {
@@ -1121,7 +1279,7 @@ input::placeholder {
 .banner-emblem {
   position: relative;
   z-index: 1;
-  margin-right: 12px;
+  margin-inline-end: 12px;
 }
 
 .banner-actions {
@@ -1137,7 +1295,8 @@ input::placeholder {
   gap: 10px;
   max-width: 540px;
   margin-top: 22px;
-  padding: 6px 6px 6px 16px;
+  padding-block: 6px;
+  padding-inline: 16px 6px;
   border: 1px solid rgb(255 255 255 / 30%);
   border-radius: 14px;
   background: rgb(255 255 255 / 13%);
@@ -1174,6 +1333,9 @@ input::placeholder {
 /* ---------- cards, stats, links ---------- */
 
 .card {
+  transition:
+    background-color 0.35s,
+    border-color 0.35s;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -1197,7 +1359,7 @@ input::placeholder {
   flex-direction: column;
   gap: 2px;
   overflow: hidden;
-  padding-right: 72px;
+  padding-inline-end: 72px;
   animation: fade-up 0.5s var(--ease) backwards;
   transition:
     transform 0.2s var(--ease),
@@ -1215,7 +1377,8 @@ input::placeholder {
 .stat::before {
   content: "";
   position: absolute;
-  inset: 0 auto 0 0;
+  inset-block: 0;
+  inset-inline-start: 0;
   width: 4px;
   background: linear-gradient(180deg, #145788, #87ba55);
 }
@@ -1255,7 +1418,7 @@ input::placeholder {
 .stat > .stat-icon {
   position: absolute;
   top: 20px;
-  right: 20px;
+  inset-inline-end: 20px;
 }
 
 .stat:nth-child(even) .stat-icon,
@@ -1296,7 +1459,7 @@ input::placeholder {
 .link-card {
   position: relative;
   display: block;
-  padding-right: 52px;
+  padding-inline-end: 52px;
   color: var(--text);
   animation: fade-up 0.5s var(--ease) backwards;
   animation-delay: calc(200ms + var(--i, 0) * 70ms);
@@ -1327,13 +1490,13 @@ input::placeholder {
 .link-card-arrow {
   position: absolute;
   top: 22px;
-  right: 20px;
+  inset-inline-end: 20px;
   color: var(--accent-strong);
   transition: transform 0.25s var(--ease);
 }
 
 .link-card:hover .link-card-arrow {
-  transform: translateX(6px);
+  transform: translateX(calc(6px * var(--dir)));
 }
 
 .two-columns {
@@ -1407,7 +1570,7 @@ input::placeholder {
   display: inline-block;
   width: 9px;
   height: 9px;
-  margin-right: 6px;
+  margin-inline-end: 6px;
   border-radius: 50%;
 }
 
@@ -1491,7 +1654,7 @@ input::placeholder {
 .table th,
 .table td {
   padding: 13px 16px;
-  text-align: left;
+  text-align: start;
   vertical-align: middle;
   border-bottom: 1px solid var(--border);
 }
@@ -1520,7 +1683,7 @@ input::placeholder {
 }
 
 .table .num {
-  text-align: right;
+  text-align: end;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1612,7 +1775,9 @@ input::placeholder {
   overflow-wrap: anywhere;
 }
 
-/* ---------- sign in / sign up ---------- */
+/* ---------- sign in / sign up ----------
+   One side is only the brand: the logo, large and centred, one sentence and one quotation.
+   The other side is only the form. */
 
 .auth {
   display: grid;
@@ -1623,108 +1788,111 @@ input::placeholder {
 .auth-aside {
   position: sticky;
   top: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 24px;
+  display: grid;
+  place-items: center;
   height: 100dvh;
   overflow: hidden;
-  padding: 44px 48px;
+  padding: 48px;
   background: var(--brand-gradient);
   color: #ffffff;
+  text-align: center;
 }
 
-.auth-aside > :not(.orbs) {
+.auth-aside-body {
   position: relative;
   z-index: 1;
-}
-
-.auth-aside .eyebrow {
-  color: #d3ebbb;
-  animation: fade-in 0.8s backwards;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(560px, 100%);
 }
 
 .auth-aside-body > * {
-  animation: fade-up 0.7s var(--ease) backwards;
+  animation: fade-up 0.8s var(--ease) backwards;
 }
 
 .auth-aside-body > :nth-child(2) {
-  animation-delay: 120ms;
+  animation-delay: 150ms;
 }
 
 .auth-aside-body > :nth-child(3) {
-  animation-delay: 220ms;
+  animation-delay: 300ms;
 }
 
-.auth-aside-body > :nth-child(4) {
-  animation-delay: 320ms;
-}
-
-.emblem-stage {
+.auth-aside-logo {
   position: relative;
-  width: 150px;
-  height: 150px;
-  margin-bottom: 30px;
+  width: min(480px, 100%);
+  margin-bottom: 34px;
 }
 
-.emblem-ring {
+/* A soft light behind the logo that slowly breathes. */
+.auth-aside-logo::before {
+  content: "";
   position: absolute;
-  inset: -12px;
-  border: 2px solid rgb(255 255 255 / 40%);
+  inset: -12% -8%;
   border-radius: 50%;
-  animation: ring 3.6s ease-out infinite;
+  background: radial-gradient(closest-side, rgb(255 255 255 / 24%), transparent);
+  animation: breathe 5.5s ease-in-out infinite;
 }
 
-.emblem-ring + .emblem-ring {
-  animation-delay: 1.8s;
+.auth-aside-logo .logo {
+  position: relative;
+  width: 100%;
+  height: auto;
 }
 
 .auth-aside h1 {
-  max-width: 16ch;
+  max-width: 19ch;
   color: #ffffff;
-  font-size: clamp(1.9rem, 3vw, 2.6rem);
-  line-height: 1.13;
-}
-
-.auth-aside p {
-  max-width: 44ch;
-  margin-top: 16px;
-  color: rgb(255 255 255 / 90%);
-  font-size: 1.03rem;
-}
-
-.auth-facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 30px;
-  margin: 26px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.auth-facts li {
-  display: flex;
-  flex-direction: column;
-  color: rgb(255 255 255 / 84%);
-  font-size: 0.85rem;
-}
-
-.auth-facts strong {
-  color: #ffffff;
-  font-size: 1.45rem;
+  font-size: clamp(1.7rem, 2.5vw, 2.35rem);
   line-height: 1.2;
 }
 
-.auth-aside .auth-footnote {
+.quote {
+  max-width: 46ch;
+  margin: 30px 0 0;
+  padding: 18px 24px;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 10%);
+  backdrop-filter: blur(6px);
+}
+
+.quote blockquote {
   margin: 0;
+  font-size: 1.14rem;
+  font-style: italic;
+  line-height: 1.5;
+  quotes: auto;
+}
+
+.quote blockquote::before {
+  content: open-quote;
+}
+
+.quote blockquote::after {
+  content: close-quote;
+}
+
+[dir="rtl"] .quote blockquote {
+  font-style: normal;
+}
+
+.quote figcaption {
+  margin-top: 8px;
   color: rgb(255 255 255 / 82%);
-  font-size: 0.85rem;
+  font-size: 0.88rem;
+}
+
+.quote figcaption::before {
+  content: "— ";
 }
 
 .auth-main {
+  position: relative;
   display: grid;
   place-items: center;
-  padding: 28px 20px;
+  padding: 76px 20px 28px;
 }
 
 .auth-column {
@@ -1734,16 +1902,11 @@ input::placeholder {
   width: min(440px, 100%);
 }
 
+/* The form side shows the logo only when the brand side is hidden (narrow screens). */
 .auth-logo {
-  display: inline-flex;
+  display: none;
   margin-bottom: 14px;
-  border-radius: 14px;
   animation: pop-in 0.6s var(--ease) backwards;
-  transition: transform 0.3s var(--ease);
-}
-
-.auth-logo:hover {
-  transform: scale(1.04);
 }
 
 .auth-card {
@@ -1754,6 +1917,9 @@ input::placeholder {
   background: var(--surface);
   box-shadow: var(--shadow-lg);
   animation: fade-up 0.6s var(--ease) 0.12s backwards;
+  transition:
+    background-color 0.35s,
+    border-color 0.35s;
 }
 
 .auth-card > .muted {
@@ -1764,7 +1930,7 @@ input::placeholder {
   font-size: 1.55rem;
 }
 
-/* The white pill slides between "Sign in" and "Sign up". */
+/* The pill slides between "Sign in" and "Sign up". */
 .tabs {
   position: relative;
   display: grid;
@@ -1778,7 +1944,8 @@ input::placeholder {
 .tabs::before {
   content: "";
   position: absolute;
-  inset: 4px auto 4px 4px;
+  inset-block: 4px;
+  inset-inline-start: 4px;
   width: calc(50% - 4px);
   border: 1px solid var(--border);
   border-radius: 9px;
@@ -1788,7 +1955,7 @@ input::placeholder {
 }
 
 .tabs[data-mode="signup"]::before {
-  transform: translateX(100%);
+  transform: translateX(calc(100% * var(--dir)));
 }
 
 .tab {
@@ -1816,7 +1983,18 @@ input::placeholder {
   font-size: 0.93rem;
 }
 
+.auth-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 18px;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
 .not-found {
+  position: relative;
   display: grid;
   place-items: center;
   align-content: center;
@@ -1845,6 +2023,12 @@ input::placeholder {
 }
 
 .intro-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.intro-bar-actions nav {
   display: flex;
   gap: 8px;
 }
@@ -1955,7 +2139,8 @@ input::placeholder {
 /* Bars start empty and grow to --w once the card is on screen. */
 .bar-fill {
   position: absolute;
-  inset: 0 auto 0 0;
+  inset-block: 0;
+  inset-inline-start: 0;
   width: 0;
   border-radius: 999px;
   transition: width 1.1s var(--ease);
@@ -1991,7 +2176,8 @@ input::placeholder {
 
 /* Sits on top of the measured bar from where the expectation ends, and arrives last. */
 .bar-row:nth-child(6) .bar-excess {
-  border-radius: 0 999px 999px 0;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
   background: var(--brand-green);
   transition-delay: 1.9s;
   transition-duration: 0.6s;
@@ -2010,7 +2196,7 @@ input::placeholder {
   display: inline-block;
   width: 10px;
   height: 10px;
-  margin-right: 6px;
+  margin-inline-end: 6px;
   border-radius: 3px;
   background: var(--brand-green);
 }
@@ -2160,14 +2346,14 @@ input::placeholder {
   flex-direction: column;
   padding: 14px 18px;
   border: 1px solid var(--border);
-  border-left: 4px solid var(--brand-green);
-  border-radius: 6px 12px 12px 6px;
+  border-inline-start: 4px solid var(--brand-green);
+  border-radius: 12px;
   background: var(--surface);
   box-shadow: var(--shadow);
 }
 
 .source.lift:hover {
-  border-left-color: var(--brand-green);
+  border-inline-start-color: var(--brand-green);
 }
 
 .intro-closing {
@@ -2223,6 +2409,12 @@ input::placeholder {
 
 /* ---------- small screens ---------- */
 
+@media (max-width: 1100px) {
+  .user-id {
+    display: none;
+  }
+}
+
 @media (max-width: 900px) {
   .intro-hero-grid {
     grid-template-columns: 1fr;
@@ -2248,6 +2440,10 @@ input::placeholder {
     display: none;
   }
 
+  .auth-logo {
+    display: block;
+  }
+
   .nav {
     order: 3;
     flex-basis: 100%;
@@ -2259,14 +2455,20 @@ input::placeholder {
   }
 }
 
-@media (max-height: 760px) {
-  .emblem-stage {
+@media (max-height: 640px) {
+  .quote {
+    display: none;
+  }
+}
+
+/* The two account buttons are repeated just below, in the hero: the bar drops them. */
+@media (max-width: 640px) {
+  .intro-bar-actions nav {
     display: none;
   }
 }
 
 @media (max-width: 520px) {
-  .user-id,
   .topbar-user .btn .icon {
     display: none;
   }
@@ -2275,15 +2477,10 @@ input::placeholder {
     padding-top: 20px;
   }
 
-  .intro-bar .logo img,
-  .topbar .logo img {
+  .intro-bar .logo,
+  .topbar .logo {
     width: auto;
     height: 50px;
-  }
-
-  .auth-logo img {
-    width: auto;
-    height: 104px;
   }
 
   .intro-bar-actions .btn {
@@ -2296,5 +2493,10 @@ input::placeholder {
 
   .banner-search .btn {
     padding: 0 12px;
+  }
+
+  .lang-switch button {
+    min-width: 30px;
+    padding: 0 7px;
   }
 }

@@ -11,18 +11,18 @@ import respx
 from rich.console import Console
 from typer.testing import CliRunner
 
-from synergyrx_data import build, cli
-from synergyrx_data.cli import app
-from synergyrx_data.config import Settings
-from synergyrx_data.connectors import REGISTRY
-from synergyrx_data.connectors._synergy import synergy_frame
-from synergyrx_data.literature.abstracts import articles_frame
-from synergyrx_data.manifest import Manifest
-from synergyrx_data.provenance import PROVENANCE_COLUMNS, has_provenance, write_parquet
-from synergyrx_data.quality.drift import DriftTracker, compare, snapshot
-from synergyrx_data.quality.licenses import render_licenses
-from synergyrx_data.quality.reports import coverage_table, missingness_table
 from tests.conftest import TEST_EMAIL
+from tujya_data import build, cli
+from tujya_data.cli import app
+from tujya_data.config import Settings
+from tujya_data.connectors import REGISTRY
+from tujya_data.connectors._synergy import synergy_frame
+from tujya_data.literature.abstracts import articles_frame
+from tujya_data.manifest import Manifest
+from tujya_data.provenance import PROVENANCE_COLUMNS, has_provenance, write_parquet
+from tujya_data.quality.drift import DriftTracker, compare, snapshot
+from tujya_data.quality.licenses import render_licenses
+from tujya_data.quality.reports import coverage_table, missingness_table
 
 FU = "O=c1[nH]cc(F)c(=O)[nH]1"
 VELIPARIB = "CC1(c2nc3c(C(N)=O)cccc3[nH]2)CCCN1"
@@ -215,7 +215,7 @@ def test_clean_builds_the_processed_tables(built: Settings) -> None:
 
 
 def test_clean_without_inputs_says_what_to_run(settings: Settings) -> None:
-    with pytest.raises(build.BuildError, match="synergyrx fetch"):
+    with pytest.raises(build.BuildError, match="tujya fetch"):
         build.clean(settings)
 
 
@@ -426,7 +426,7 @@ def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(cli, "console", Console(width=250))  # no line wrapping in assertions
     monkeypatch.setenv("CONTACT_EMAIL", TEST_EMAIL)
     monkeypatch.delenv("NCBI_API_KEY", raising=False)
-    monkeypatch.delenv("SYNERGYRX_CONFIG", raising=False)
+    monkeypatch.delenv("TUJYA_CONFIG", raising=False)
     return tmp_path
 
 
@@ -488,11 +488,11 @@ def test_cli_overrides_and_bad_config(project: Path) -> None:
     assert result.exit_code == 0 and "dataverse" not in result.output
     bad = runner.invoke(app, ["--set", "http.nonsense=1", "fetch", "--dry-run"])
     assert bad.exit_code == 2 and "Configuration error" in bad.output
-    assert "synergyrx-data" in runner.invoke(app, ["--version"]).output
+    assert "tujya-data" in runner.invoke(app, ["--version"]).output
 
 
 def test_cli_offline_commands_on_built_data(project: Path) -> None:
-    from synergyrx_data.config import load_settings
+    from tujya_data.config import load_settings
 
     seed_interim(load_settings(project / "config.yaml"))
     for command in ("clean", "literature", "report", "export"):
@@ -566,7 +566,7 @@ def test_generated_files_are_grouped_by_format_under_the_data_folder(built: Sett
 
 
 def test_format_folders_follow_the_data_dir_and_can_be_overridden(tmp_path: Path) -> None:
-    from synergyrx_data.config import ConfigError, load_settings
+    from tujya_data.config import ConfigError, load_settings
 
     moved = load_settings(None, ["data_dir=elsewhere/store"], project_root=tmp_path, environ={})
     store = tmp_path / "elsewhere" / "store"

@@ -11,22 +11,10 @@ import logoDarkUrl from "./assets/logo-dark.png";
 import logoMarkUrl from "./assets/logo-mark.png";
 import logoUrl from "./assets/logo.png";
 import { APP_NAME } from "./brand";
+import { LANGUAGES, useI18n, type MessageKey } from "./i18n";
 import { Icon, type IconName } from "./icons";
 import { CountUp } from "./motion";
-
-const numberFormat = new Intl.NumberFormat("en");
-
-export function formatNumber(value: number): string {
-  return numberFormat.format(value);
-}
-
-export function formatDate(iso: string | null, withTime = false): string {
-  if (!iso) return "Never";
-  return new Date(iso).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: withTime ? "short" : undefined,
-  });
-}
+import { useTheme } from "./theme";
 
 export function initials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -34,12 +22,9 @@ export function initials(name: string): string {
   return letters.join("").toUpperCase() || "?";
 }
 
-/** "Good morning", "Good afternoon" or "Good evening", by the visitor's own clock. */
-export function greeting(now = new Date()): string {
-  const hour = now.getHours();
-  if (hour >= 5 && hour < 12) return "Good morning";
-  if (hour >= 12 && hour < 18) return "Good afternoon";
-  return "Good evening";
+/** Position of a row or card in its list, for staggered entrances (see --i in the CSS). */
+export function staggerIndex(index: number): CSSProperties {
+  return { "--i": Math.min(index, 12) } as CSSProperties;
 }
 
 const LOGO_RATIO = 490 / 240; // width / height of the logo files
@@ -47,22 +32,26 @@ const LOGO_RATIO = 490 / 240; // width / height of the logo files
 interface LogoProps {
   height?: number;
   /**
-   * "auto" follows the page: the original logo on a light page, and on a dark page the
-   * version whose wordmark is lightened so it stays readable. "dark" forces that version,
-   * for the blue-to-green brand background. Neither has a background of its own.
+   * "auto" follows the theme: the original logo in light mode, and in dark mode the version
+   * whose wordmark is lightened so it stays readable. "dark" forces that version, for the
+   * blue-to-green brand background. Neither has a background of its own.
    */
   tone?: "auto" | "dark";
+  className?: string;
 }
 
 /** The full logo: emblem and wordmark, transparent, sitting directly on the page. */
-export function Logo({ height = 64, tone = "auto" }: LogoProps) {
-  const size = { height, width: Math.round(height * LOGO_RATIO) };
-  if (tone === "dark") return <img className="logo" src={logoDarkUrl} alt={APP_NAME} {...size} />;
+export function Logo({ height = 64, tone = "auto", className = "" }: LogoProps) {
+  const { theme } = useTheme();
+  const dark = tone === "dark" || theme === "dark";
   return (
-    <picture className="logo">
-      <source srcSet={logoDarkUrl} media="(prefers-color-scheme: dark)" />
-      <img src={logoUrl} alt={APP_NAME} {...size} />
-    </picture>
+    <img
+      className={`logo ${className}`}
+      src={dark ? logoDarkUrl : logoUrl}
+      alt={APP_NAME}
+      height={height}
+      width={Math.round(height * LOGO_RATIO)}
+    />
   );
 }
 
@@ -73,11 +62,60 @@ export function LogoMark({ size = 28, className = "" }: { size?: number; classNa
   );
 }
 
-export function Spinner({ label = "Loading" }: { label?: string }) {
+/**
+ * The moving background behind every page: three soft glows in the logo's colours drifting
+ * over a faint honeycomb, the shape of the molecule in the emblem. Purely decorative.
+ */
+export function Backdrop() {
+  return (
+    <div className="backdrop" aria-hidden="true">
+      <span />
+      <span />
+      <span />
+    </div>
+  );
+}
+
+/** Language (English, French, Arabic) and light / dark mode. Both choices are remembered. */
+export function Preferences() {
+  const { lang, setLang, t } = useI18n();
+  const { theme, toggle } = useTheme();
+  return (
+    <div className="prefs">
+      <div className="lang-switch" role="group" aria-label={t("common.language")}>
+        {LANGUAGES.map((language) => (
+          <button
+            key={language.code}
+            type="button"
+            lang={language.code}
+            title={language.name}
+            aria-label={language.name}
+            aria-pressed={language.code === lang}
+            onClick={() => setLang(language.code)}
+          >
+            {language.short}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        className="theme-toggle"
+        aria-label={t(theme === "dark" ? "common.toLight" : "common.toDark")}
+        title={t(theme === "dark" ? "common.toLight" : "common.toDark")}
+        onClick={toggle}
+      >
+        <Icon name={theme === "dark" ? "sun" : "moon"} />
+      </button>
+    </div>
+  );
+}
+
+export function Spinner({ label }: { label?: string }) {
+  const { t } = useI18n();
   return (
     <div className="spinner-wrap" role="status">
       <span className="spinner" aria-hidden="true" />
-      <span className="sr-only">{label}</span>
+      <span className="sr-only">{label ?? t("common.loading")}</span>
     </div>
   );
 }
@@ -88,8 +126,9 @@ export function Skeleton({ width = "100%", height = "1em" }: { width?: string; h
 }
 
 export function TableSkeleton({ rows = 8 }: { rows?: number }) {
+  const { t } = useI18n();
   return (
-    <div className="card table-card" role="status" aria-label="Loading">
+    <div className="card table-card" role="status" aria-label={t("common.loading")}>
       {Array.from({ length: rows }, (_, row) => (
         <div className="skeleton-row" key={row}>
           <Skeleton width="26%" />
@@ -150,20 +189,19 @@ export function StatTile({ icon, label, value, note, loading = false }: StatTile
   );
 }
 
-const STRENGTH_LABELS = ["Too short", "Weak", "Fair", "Good", "Strong"];
-
 /** A rough 0 to 4 guide from length and variety. It cannot know if a password is reused. */
-export function passwordScore(password: string, minLength: number): number {
+export function passwordScore(password: string, minLength: number): 0 | 1 | 2 | 3 | 4 {
   if (password.length < minLength) return 0;
   const kinds = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((kind) => kind.test(password));
   let score = 1;
   if (password.length >= 12) score += 1;
   if (kinds.length >= 2) score += 1;
   if (kinds.length >= 3 && password.length >= 10) score += 1;
-  return score;
+  return score as 1 | 2 | 3 | 4;
 }
 
 export function PasswordStrength({ password, minLength }: { password: string; minLength: number }) {
+  const { t } = useI18n();
   if (!password) return null;
   const score = passwordScore(password, minLength);
   return (
@@ -173,7 +211,7 @@ export function PasswordStrength({ password, minLength }: { password: string; mi
           <span key={step} className={step <= score ? "on" : undefined} />
         ))}
       </div>
-      <span role="status">{STRENGTH_LABELS[score]}</span>
+      <span role="status">{t(`strength.${score}`)}</span>
     </div>
   );
 }
@@ -213,10 +251,11 @@ interface SubmitButtonProps {
 
 /** A submit button that shows a spinner and blocks double clicks while its request runs. */
 export function SubmitButton({ busy, children, className = "btn btn-primary", disabled }: SubmitButtonProps) {
+  const { t } = useI18n();
   return (
     <button type="submit" className={className} disabled={busy || disabled}>
       {busy && <span className="btn-spinner" aria-hidden="true" />}
-      {busy ? "Please wait…" : children}
+      {busy ? t("common.pleaseWait") : children}
     </button>
   );
 }
@@ -229,6 +268,7 @@ interface ModalProps {
 
 /** A native <dialog>: the browser handles Escape, focus trapping and the backdrop. */
 export function Modal({ title, onClose, children }: ModalProps) {
+  const { t } = useI18n();
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -265,7 +305,12 @@ export function Modal({ title, onClose, children }: ModalProps) {
       <div className="modal-body">
         <header className="modal-header">
           <h2 id={titleId}>{title}</h2>
-          <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={t("common.close")}
+            onClick={onClose}
+          >
             ×
           </button>
         </header>
@@ -283,13 +328,14 @@ interface PaginationProps {
 }
 
 export function Pagination({ page, pageSize, total, onPage }: PaginationProps) {
+  const { t, n } = useI18n();
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const first = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const last = Math.min(page * pageSize, total);
   return (
-    <nav className="pagination" aria-label="Pages">
+    <nav className="pagination" aria-label={t("common.pages")}>
       <span className="muted">
-        {formatNumber(first)}–{formatNumber(last)} of {formatNumber(total)}
+        {t("common.rangeOf", { first: n(first), last: n(last), total: n(total) })}
       </span>
       <div className="pagination-buttons">
         <button
@@ -298,25 +344,23 @@ export function Pagination({ page, pageSize, total, onPage }: PaginationProps) {
           disabled={page <= 1}
           onClick={() => onPage(page - 1)}
         >
-          Previous
+          {t("common.previous")}
         </button>
-        <span className="muted">
-          Page {formatNumber(page)} of {formatNumber(pages)}
-        </span>
+        <span className="muted">{t("common.pageOf", { page: n(page), pages: n(pages) })}</span>
         <button
           type="button"
           className="btn btn-secondary btn-sm"
           disabled={page >= pages}
           onClick={() => onPage(page + 1)}
         >
-          Next
+          {t("common.next")}
         </button>
       </div>
     </nav>
   );
 }
 
-/** Position of a row or card in its list, for staggered entrance animations (see --i in CSS). */
-export function staggerIndex(index: number): CSSProperties {
-  return { "--i": Math.min(index, 12) } as CSSProperties;
+/** Which message names a role in the current language. */
+export function roleKey(role: string): MessageKey {
+  return role === "admin" ? "role.admin" : "role.user";
 }

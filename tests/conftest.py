@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 import respx
 
-from synergyrx_data.config import Secrets, Settings, load_settings
-from synergyrx_data.connectors import allowed_hosts
-from synergyrx_data.http.client import PoliteClient
+from tujya_data.config import Secrets, Settings, load_settings
+from tujya_data.connectors import allowed_hosts
+from tujya_data.http.client import PoliteClient
 
 # example.org is reserved for documentation (RFC 2606): this is not a real mailbox.
 TEST_EMAIL = "pipeline-tests@example.org"

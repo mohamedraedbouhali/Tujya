@@ -9,12 +9,12 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from synergyrx_data import build
-from synergyrx_data.cleaning.scores import SCORE_COLUMNS
-from synergyrx_data.config import Settings
-from synergyrx_data.manifest import ManifestEntry
-from synergyrx_data.provenance import PROVENANCE_COLUMNS
 from tests.unit.test_build_cli import seed_interim
+from tujya_data import build
+from tujya_data.cleaning.scores import SCORE_COLUMNS
+from tujya_data.config import Settings
+from tujya_data.manifest import ManifestEntry
+from tujya_data.provenance import PROVENANCE_COLUMNS
 
 DICTIONARY = Path(__file__).resolve().parents[2] / "docs" / "DATA_DICTIONARY.md"
 GENE_COLUMN = re.compile(r"^.+ \(\d+\)$")
@@ -35,7 +35,7 @@ def documented() -> dict[str, set[str]]:
 
 @pytest.fixture(scope="module")
 def outputs(tmp_path_factory: pytest.TempPathFactory) -> Settings:
-    from synergyrx_data.config import Secrets, load_settings
+    from tujya_data.config import Secrets, load_settings
 
     settings = load_settings(None, project_root=tmp_path_factory.mktemp("project"), environ={})
     settings.secrets = Secrets()

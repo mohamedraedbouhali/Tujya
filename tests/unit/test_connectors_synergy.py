@@ -17,12 +17,12 @@ import pandas as pd
 import pytest
 import respx
 
-from synergyrx_data import pipeline
-from synergyrx_data.config import Settings, SourceConfig
-from synergyrx_data.connectors._safe_pickle import load_dataframe_pickle
-from synergyrx_data.manifest import Manifest
-from synergyrx_data.provenance import PROVENANCE_COLUMNS, has_provenance
-from synergyrx_data.state import MANUAL_STEP, NEEDS_ATTENTION, StateStore
+from tujya_data import pipeline
+from tujya_data.config import Settings, SourceConfig
+from tujya_data.connectors._safe_pickle import load_dataframe_pickle
+from tujya_data.manifest import Manifest
+from tujya_data.provenance import PROVENANCE_COLUMNS, has_provenance
+from tujya_data.state import MANUAL_STEP, NEEDS_ATTENTION, StateStore
 
 DRUGCOMB_URL = "https://zenodo.org/api/records/11102665/files/summary_table_v1.4.csv/content"
 DRUGCOMB_CSV = (
@@ -470,8 +470,8 @@ async def test_depmap_models_and_expression_from_figshare(
 async def test_depmap_new_expression_layout_is_understood(
     settings: Settings, mock_http: respx.MockRouter, depmap: dict[str, respx.Route]
 ) -> None:
-    from synergyrx_data.connectors.base import Artifact
-    from synergyrx_data.connectors.depmap import DepMapConnector
+    from tujya_data.connectors.base import Artifact
+    from tujya_data.connectors.depmap import DepMapConnector
 
     path = settings.raw_dir / "new.csv"
     path.parent.mkdir(parents=True)
@@ -602,7 +602,7 @@ def test_a_stale_lock_from_a_dead_process_is_cleared(settings: Settings) -> None
     import os
     import time
 
-    from synergyrx_data.manifest import file_lock
+    from tujya_data.manifest import file_lock
 
     target = settings.state_dir / "connectors.json"
     lock = target.with_name(target.name + ".lock")

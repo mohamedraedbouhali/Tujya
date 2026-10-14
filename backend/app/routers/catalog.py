@@ -43,7 +43,7 @@ def _page(rows: list[dict[str, Any]], q: str, page: int, page_size: int) -> Cata
 def _unavailable(exc: TableUnavailable) -> HTTPException:
     return HTTPException(
         status.HTTP_503_SERVICE_UNAVAILABLE,
-        f"The {exc} table is not available yet. Build it with `synergyrx clean`.",
+        f"The {exc} table is not available yet. Build it with `tujya clean`.",
     )
 
 

@@ -9,10 +9,10 @@ from urllib.parse import urlsplit
 
 import pytest
 
-from synergyrx_data.connectors import REGISTRY, all_links, allowed_hosts
-from synergyrx_data.quality.linkcheck import ENDPOINTS
+from tujya_data.connectors import REGISTRY, all_links, allowed_hosts
+from tujya_data.quality.linkcheck import ENDPOINTS
 
-SRC = Path(__file__).resolve().parents[2] / "src" / "synergyrx_data"
+SRC = Path(__file__).resolve().parents[2] / "src" / "tujya_data"
 CONNECTOR_FILES = sorted((SRC / "connectors").glob("*.py"))
 BRIEF_LINKS = [
     "https://drugcomb.org/",

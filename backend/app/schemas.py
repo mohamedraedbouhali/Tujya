@@ -43,7 +43,10 @@ class LoginIn(BaseModel):
 
 
 class ProfileUpdate(BaseModel):
-    full_name: FullName
+    full_name: FullName | None = None
+    email: Email | None = None
+    # Needed when the email changes: proves the account owner is the one at the keyboard.
+    current_password: str | None = Field(default=None, max_length=128)
 
 
 class PasswordChange(BaseModel):

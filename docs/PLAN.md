@@ -1,7 +1,7 @@
-# SynergyRx data pipeline: plan
+# Tujya data pipeline: plan
 
 Purpose: collect public drug-combination, cell-line, chemistry and literature data for
-SynergyRx AI in a polite, reproducible way. It is a set of source connectors, not a crawler.
+Tujya in a polite, reproducible way. It is a set of source connectors, not a crawler.
 
 ## Architecture
 

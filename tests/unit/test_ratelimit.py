@@ -8,9 +8,9 @@ import time
 
 import pytest
 
-from synergyrx_data.config import HostLimit
-from synergyrx_data.http.ratelimit import HostRateLimiter, TokenBucket
 from tests.conftest import FakeClock
+from tujya_data.config import HostLimit
+from tujya_data.http.ratelimit import HostRateLimiter, TokenBucket
 
 
 def max_in_any_window(times: list[float], window: float) -> int:

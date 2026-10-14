@@ -1,6 +1,6 @@
-# SynergyRx data pipeline.
-#   docker build -t synergyrx-data .
-#   docker build -t synergyrx-data --build-arg INSTALL_TDC=1 .   # adds PyTDC (large)
+# Tujya data pipeline.
+#   docker build -t tujya-data .
+#   docker build -t tujya-data --build-arg INSTALL_TDC=1 .   # adds PyTDC (large)
 # Python 3.12 is used here because PyTDC does not install on 3.13+.
 FROM python:3.12-slim
 
@@ -26,12 +26,12 @@ COPY docs ./docs
 
 # Run unprivileged. Everything the pipeline writes goes under /app/data, which is meant
 # to be mounted from the host.
-RUN useradd --create-home --uid 1000 synergyrx \
+RUN useradd --create-home --uid 1000 tujya \
     && mkdir -p data \
-    && chown -R synergyrx:synergyrx /app
-USER synergyrx
+    && chown -R tujya:tujya /app
+USER tujya
 VOLUME ["/app/data"]
 
 # Secrets are passed at run time (--env-file .env); they are never baked into the image.
-ENTRYPOINT ["synergyrx"]
+ENTRYPOINT ["tujya"]
 CMD ["--help"]

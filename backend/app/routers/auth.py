@@ -67,8 +67,16 @@ def read_me(user: CurrentUser) -> User:
 
 @router.patch("/me", response_model=UserOut)
 def update_me(payload: ProfileUpdate, user: CurrentUser, db: DbSession) -> User:
-    user.full_name = payload.full_name
-    db.commit()
+    """Edit one's own name or email. A new email is only accepted with the current password,
+    because the email is what the account signs in with."""
+    if payload.email is not None and payload.email != user.email:
+        if not verify_password(payload.current_password or "", user.password_hash):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "The current password is incorrect")
+        ensure_email_free(db, payload.email, except_user_id=user.id)
+        user.email = payload.email
+    if payload.full_name is not None:
+        user.full_name = payload.full_name
+    commit_or_conflict(db)
     return user
 
 

@@ -7,56 +7,57 @@ import {
   Alert,
   Avatar,
   Badge,
-  formatDate,
-  greeting,
+  roleKey,
   StatTile,
   staggerIndex,
   TableSkeleton,
 } from "../../components";
 import { useQuery } from "../../hooks";
+import { greetingKey, useI18n, type MessageKey } from "../../i18n";
 import { Icon, type IconName } from "../../icons";
 
-const TILES: { key: keyof AdminStats; label: string; note: string; icon: IconName }[] = [
-  { key: "users_total", label: "Accounts", note: "users and administrators", icon: "users" },
-  { key: "users_active", label: "Active", note: "can sign in", icon: "check" },
-  { key: "users_inactive", label: "Deactivated", note: "blocked from signing in", icon: "ban" },
-  { key: "admins", label: "Administrators", note: "active, with full access", icon: "shield" },
+const TILES: { key: keyof AdminStats; label: MessageKey; note: MessageKey; icon: IconName }[] = [
+  { key: "users_total", label: "dash.accounts", note: "dash.accounts.note", icon: "users" },
+  { key: "users_active", label: "dash.active", note: "dash.active.note", icon: "check" },
+  { key: "users_inactive", label: "dash.inactive", note: "dash.inactive.note", icon: "ban" },
+  { key: "admins", label: "dash.admins", note: "dash.admins.note", icon: "shield" },
   {
     key: "signups_last_7_days",
-    label: "New this week",
-    note: "created in the last 7 days",
+    label: "dash.newThisWeek",
+    note: "dash.newThisWeek.note",
     icon: "spark",
   },
-  {
-    key: "active_sessions",
-    label: "Open sessions",
-    note: "browsers signed in right now",
-    icon: "clock",
-  },
+  { key: "active_sessions", label: "dash.sessions", note: "dash.sessions.note", icon: "clock" },
 ];
 
 /** Share of accounts that can sign in, as a bar that fills when the numbers arrive. */
 function AccessMeter({ stats }: { stats: AdminStats }) {
+  const { t, n } = useI18n();
   const share = stats.users_total ? Math.round((stats.users_active / stats.users_total) * 100) : 0;
   return (
     <div className="card meter-card">
       <div className="meter-head">
-        <h2>Account access</h2>
-        <strong>{share}% active</strong>
+        <h2>{t("dash.access.title")}</h2>
+        <strong>{t("dash.access.share", { percent: n(share) })}</strong>
       </div>
       <div
         className="meter"
         role="img"
-        aria-label={`${stats.users_active} of ${stats.users_total} accounts are active`}
+        aria-label={t("dash.access.aria", {
+          active: n(stats.users_active),
+          total: n(stats.users_total),
+        })}
       >
         <span style={{ "--w": `${share}%` } as CSSProperties} />
       </div>
       <p className="meter-legend muted">
         <span>
-          <i className="dot dot-active" /> {stats.users_active} active
+          <i className="dot dot-active" />
+          {t("dash.access.active", { n: n(stats.users_active) })}
         </span>
         <span>
-          <i className="dot dot-inactive" /> {stats.users_inactive} deactivated
+          <i className="dot dot-inactive" />
+          {t("dash.access.inactive", { n: n(stats.users_inactive) })}
         </span>
       </p>
     </div>
@@ -65,6 +66,7 @@ function AccessMeter({ stats }: { stats: AdminStats }) {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { t, d, err } = useI18n();
   const stats = useQuery((signal) => api.admin.stats(signal), []);
   const recent = useQuery((signal) => api.admin.users({ page_size: 5 }, signal), []);
   const firstName = user?.full_name.split(/\s+/)[0] ?? "";
@@ -77,32 +79,30 @@ export default function Dashboard() {
           <span />
         </div>
         <div className="banner-copy">
-          <p className="eyebrow">Administration</p>
-          <h1>Dashboard</h1>
-          <p>
-            {greeting()}, {firstName}. Here is who has access to {APP_NAME}, at a glance.
-          </p>
+          <p className="eyebrow">{t("dash.eyebrow")}</p>
+          <h1>{t("dash.title")}</h1>
+          <p>{t("dash.lead", { greeting: t(greetingKey()), name: firstName, app: APP_NAME })}</p>
           <div className="banner-actions">
             <Link className="btn btn-light" to="/admin/users">
               <Icon name="users" />
-              Manage users
+              {t("dash.manage")}
             </Link>
             <Link className="btn btn-on-dark" to="/home">
               <Icon name="eye" />
-              View the app
+              {t("dash.viewApp")}
             </Link>
           </div>
         </div>
       </section>
 
-      {stats.error && <Alert>{stats.error}</Alert>}
-      <section aria-label="Account numbers" className="stat-grid stat-grid-3">
+      {stats.error != null && <Alert>{err(stats.error)}</Alert>}
+      <section aria-label={t("dash.numbers")} className="stat-grid stat-grid-3">
         {TILES.map((tile) => (
           <StatTile
             key={tile.key}
             icon={tile.icon}
-            label={tile.label}
-            note={tile.note}
+            label={t(tile.label)}
+            note={t(tile.note)}
             value={stats.data?.[tile.key]}
             loading={!stats.data && stats.loading}
           />
@@ -111,8 +111,8 @@ export default function Dashboard() {
 
       {stats.data && <AccessMeter stats={stats.data} />}
 
-      <h2 className="section-title">Newest accounts</h2>
-      {recent.error && <Alert>{recent.error}</Alert>}
+      <h2 className="section-title">{t("dash.newest")}</h2>
+      {recent.error != null && <Alert>{err(recent.error)}</Alert>}
       {!recent.data && recent.loading && <TableSkeleton rows={5} />}
       {recent.data && (
         <div className="card table-card">
@@ -120,11 +120,11 @@ export default function Dashboard() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>User</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th>Last sign-in</th>
+                  <th>{t("col.user")}</th>
+                  <th>{t("col.role")}</th>
+                  <th>{t("col.status")}</th>
+                  <th>{t("col.created")}</th>
+                  <th>{t("col.lastSignIn")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -140,15 +140,15 @@ export default function Dashboard() {
                       </div>
                     </td>
                     <td>
-                      <Badge tone={account.role}>{account.role}</Badge>
+                      <Badge tone={account.role}>{t(roleKey(account.role))}</Badge>
                     </td>
                     <td>
                       <Badge tone={account.is_active ? "active" : "inactive"}>
-                        {account.is_active ? "Active" : "Deactivated"}
+                        {t(account.is_active ? "status.active" : "status.inactive")}
                       </Badge>
                     </td>
-                    <td>{formatDate(account.created_at)}</td>
-                    <td>{formatDate(account.last_login_at, true)}</td>
+                    <td>{d(account.created_at)}</td>
+                    <td>{d(account.last_login_at, true)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -76,12 +76,17 @@ export interface NewUser {
 export type UserChanges = Partial<Pick<User, "email" | "full_name" | "role" | "is_active">>;
 
 export class ApiError extends Error {
+  /** HTTP status, or 0 when the server could not be reached at all. */
   readonly status: number;
+  /** What the API sent as `detail`: a sentence, or a list of validation issues. */
+  readonly detail: unknown;
 
-  constructor(status: number, message: string) {
+  /** `message` is the English text; the i18n layer builds the translated one from `detail`. */
+  constructor(status: number, message: string, detail: unknown = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -155,7 +160,8 @@ async function request<T>(method: string, path: string, options: RequestOptions 
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     if (response.status === 401 && !options.anonymous) onSessionEnded?.();
-    throw new ApiError(response.status, describeFailure(response.status, data));
+    const detail = (data as { detail?: unknown } | null)?.detail ?? null;
+    throw new ApiError(response.status, describeFailure(response.status, data), detail);
   }
   return data as T;
 }
@@ -167,8 +173,9 @@ export const api = {
   signUp: (account: { email: string; full_name: string; password: string }) =>
     request<User>("POST", "/auth/signup", { body: account, anonymous: true }),
   signOut: () => request<void>("POST", "/auth/logout", { anonymous: true }),
-  updateProfile: (full_name: string) =>
-    request<User>("PATCH", "/auth/me", { body: { full_name } }),
+  /** A new email is only accepted together with the current password. */
+  updateProfile: (changes: { full_name?: string; email?: string; current_password?: string }) =>
+    request<User>("PATCH", "/auth/me", { body: changes }),
   changePassword: (current_password: string, new_password: string) =>
     request<void>("POST", "/auth/me/password", { body: { current_password, new_password } }),
 

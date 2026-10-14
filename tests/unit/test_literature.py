@@ -8,24 +8,24 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from synergyrx_data.literature.abstracts import (
+from tujya_data.literature.abstracts import (
     articles_frame,
     build_abstract_store,
     classify_article_type,
 )
-from synergyrx_data.literature.annotation_export import (
+from tujya_data.literature.annotation_export import (
     export_annotation_sample,
     stratified_sample,
 )
-from synergyrx_data.literature.mentions import SynonymIndex, find_candidate_sentences
-from synergyrx_data.literature.queries import (
+from tujya_data.literature.mentions import SynonymIndex, find_candidate_sentences
+from tujya_data.literature.queries import (
     append_query_log,
     build_queries,
     build_query,
     usable_terms,
 )
-from synergyrx_data.literature.sentences import split_sentences
-from synergyrx_data.provenance import PROVENANCE_COLUMNS
+from tujya_data.literature.sentences import split_sentences
+from tujya_data.provenance import PROVENANCE_COLUMNS
 
 PROVENANCE = {
     "source": "pubmed",

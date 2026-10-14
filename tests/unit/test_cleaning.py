@@ -5,28 +5,28 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from synergyrx_data.cleaning.cell_lines import (
+from tujya_data.cleaning.cell_lines import (
     build_cell_line_table,
     cell_line_key,
     collect_cell_line_names,
 )
-from synergyrx_data.cleaning.drugs import (
+from tujya_data.cleaning.drugs import (
     build_drug_table,
     collect_mentions,
     name_key,
     normalize_name,
 )
-from synergyrx_data.cleaning.pairs import add_pair_key, build_synergy_pairs, canonical_pair
-from synergyrx_data.cleaning.scores import (
+from tujya_data.cleaning.pairs import add_pair_key, build_synergy_pairs, canonical_pair
+from tujya_data.cleaning.scores import (
     SCORE_COLUMNS,
     aggregate_replicates,
     find_conflicts,
     flag_outliers,
     source_agreement,
 )
-from synergyrx_data.cleaning.smiles import standardize_smiles
-from synergyrx_data.connectors._synergy import synergy_frame
-from synergyrx_data.provenance import PROVENANCE_COLUMNS
+from tujya_data.cleaning.smiles import standardize_smiles
+from tujya_data.connectors._synergy import synergy_frame
+from tujya_data.provenance import PROVENANCE_COLUMNS
 
 FU = "O=c1[nH]cc(F)c(=O)[nH]1"
 VELIPARIB = "CC1(c2nc3c(C(N)=O)cccc3[nH]2)CCCN1"

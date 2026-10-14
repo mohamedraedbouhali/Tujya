@@ -2,8 +2,7 @@
 // their system for reduced motion, or when the browser cannot observe scrolling.
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-
-const numberFormat = new Intl.NumberFormat("en");
+import { useI18n } from "./i18n";
 
 export function usePrefersReducedMotion(): boolean {
   const query = "(prefers-reduced-motion: reduce)";
@@ -72,6 +71,7 @@ interface CountUpProps {
  * when the value changes. `data-value` always holds the final figure.
  */
 export function CountUp({ value, duration = 900 }: CountUpProps) {
+  const { n } = useI18n();
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref);
   const reduced = usePrefersReducedMotion();
@@ -88,7 +88,9 @@ export function CountUp({ value, duration = 900 }: CountUpProps) {
     }
     const start = performance.now();
     let frame = requestAnimationFrame(function tick(now: number) {
-      const progress = Math.min(1, (now - start) / duration);
+      // The first frame's timestamp can be slightly earlier than `start`: never go below 0,
+      // or the number would flash negative.
+      const progress = Math.min(1, Math.max(0, (now - start) / duration));
       const eased = 1 - (1 - progress) ** 3;
       setShown(Math.round(from + (value - from) * eased));
       if (progress < 1) frame = requestAnimationFrame(tick);
@@ -97,8 +99,8 @@ export function CountUp({ value, duration = 900 }: CountUpProps) {
   }, [inView, value, duration, reduced]);
 
   return (
-    <span ref={ref} className="count-up" data-value={numberFormat.format(value)}>
-      {numberFormat.format(shown)}
+    <span ref={ref} className="count-up" data-value={n(value)}>
+      {n(shown)}
     </span>
   );
 }

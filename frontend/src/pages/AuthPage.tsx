@@ -1,27 +1,20 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
-import { api, errorMessage, type CatalogSummary, type User } from "../api";
+import type { User } from "../api";
 import { homePath, useAuth } from "../auth";
 import { APP_NAME } from "../brand";
 import {
   Alert,
   Logo,
-  LogoMark,
   PasswordStrength,
+  Preferences,
   Spinner,
   SubmitButton,
   TextField,
 } from "../components";
-import { useQuery } from "../hooks";
-import { CountUp } from "../motion";
+import { useI18n } from "../i18n";
 
 const MIN_PASSWORD_LENGTH = 8;
-
-const FACTS: { key: keyof CatalogSummary; label: string }[] = [
-  { key: "synergy_measurements", label: "measurements" },
-  { key: "drugs", label: "drugs" },
-  { key: "cell_lines", label: "cell lines" },
-];
 
 /** Go back to the page that asked for a sign-in, but only inside the user's own area. */
 function destination(user: User, from: unknown): string {
@@ -33,9 +26,9 @@ function destination(user: User, from: unknown): string {
 
 export default function AuthPage({ mode }: { mode: "signin" | "signup" }) {
   const { user, ready, signIn, signUp } = useAuth();
+  const { t, err } = useI18n();
   const location = useLocation();
   const from = (location.state as { from?: unknown } | null)?.from;
-  const summary = useQuery((signal) => api.catalogSummary(signal), []);
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -53,14 +46,14 @@ export default function AuthPage({ mode }: { mode: "signin" | "signup" }) {
     setConfirm("");
   }, [mode]);
 
-  if (!ready) return <Spinner label="Checking your session" />;
+  if (!ready) return <Spinner label={t("common.checkingSession")} />;
   // Also what moves the user on after a successful sign-in or sign-up.
   if (user) return <Navigate to={destination(user, from)} replace />;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (signingUp && password !== confirm) {
-      setError("The two passwords do not match.");
+      setError(t("auth.mismatch"));
       return;
     }
     setBusy(true);
@@ -72,72 +65,56 @@ export default function AuthPage({ mode }: { mode: "signin" | "signup" }) {
         await signIn(email, password);
       }
     } catch (failure) {
-      setError(errorMessage(failure));
+      setError(err(failure));
       setBusy(false);
     }
   };
 
-  const facts = FACTS.flatMap((fact) => {
-    const value = summary.data?.[fact.key];
-    return value == null ? [] : [{ ...fact, value }];
-  });
-
   return (
     <div className="auth">
+      {/* The brand side: the logo, one sentence, one quotation. Nothing to read twice. */}
       <aside className="auth-aside">
         <div className="orbs" aria-hidden="true">
           <span />
           <span />
           <span />
         </div>
-        <p className="eyebrow">Drug-combination synergy in cancer cell lines</p>
         <div className="auth-aside-body">
-          <div className="emblem-stage" aria-hidden="true">
-            <span className="emblem-ring" />
-            <span className="emblem-ring" />
-            <LogoMark size={150} className="emblem-float" />
+          <div className="auth-aside-logo">
+            <Logo tone="dark" height={230} className="emblem-float" />
           </div>
-          <h1>Find drug combinations that work better together.</h1>
-          <p>
-            Explore measured synergy between drug pairs across cancer cell lines, built from
-            DrugComb, TDC, O'Neil and DepMap.
-          </p>
-          {facts.length > 0 && (
-            <ul className="auth-facts">
-              {facts.map((fact) => (
-                <li key={fact.key}>
-                  <strong>
-                    <CountUp value={fact.value} duration={1400} />
-                  </strong>
-                  {fact.label}
-                </li>
-              ))}
-            </ul>
-          )}
+          <h1>{t("tagline")}</h1>
+          <figure className="quote">
+            <blockquote>{t("quote.text")}</blockquote>
+            <figcaption>{t("quote.by")}</figcaption>
+          </figure>
         </div>
-        <p className="auth-footnote">Research use only. Not medical advice.</p>
       </aside>
 
       <main className="auth-main">
+        <div className="corner-prefs">
+          <Preferences />
+        </div>
         <div className="auth-column">
-          <Link to="/" className="auth-logo" title={`About ${APP_NAME}`}>
-            <Logo height={132} />
-          </Link>
+          {/* Only shown on narrow screens, where the brand side is hidden. */}
+          <div className="auth-logo">
+            <Logo height={104} />
+          </div>
 
           <div className="auth-card">
-            <h2>{signingUp ? "Create your account" : "Welcome back"}</h2>
+            <h2>{t(signingUp ? "auth.createYourAccount" : "auth.welcomeBack")}</h2>
             <p className="muted">
-              {signingUp ? "It takes less than a minute." : "Sign in to continue."}
+              {t(signingUp ? "auth.lessThanAMinute" : "auth.signInToContinue")}
             </p>
 
-            <nav className="tabs" data-mode={mode} aria-label="Sign in or sign up">
+            <nav className="tabs" data-mode={mode} aria-label={t("auth.tabs")}>
               <Link
                 to="/login"
                 state={location.state}
                 aria-current={signingUp ? undefined : "page"}
                 className={signingUp ? "tab" : "tab tab-active"}
               >
-                Sign in
+                {t("auth.tabSignIn")}
               </Link>
               <Link
                 to="/signup"
@@ -145,7 +122,7 @@ export default function AuthPage({ mode }: { mode: "signin" | "signup" }) {
                 aria-current={signingUp ? "page" : undefined}
                 className={signingUp ? "tab tab-active" : "tab"}
               >
-                Sign up
+                {t("auth.tabSignUp")}
               </Link>
             </nav>
 
@@ -154,7 +131,7 @@ export default function AuthPage({ mode }: { mode: "signin" | "signup" }) {
               {signingUp && (
                 <div className="field-enter">
                   <TextField
-                    label="Full name"
+                    label={t("field.fullName")}
                     value={fullName}
                     onChange={setFullName}
                     autoComplete="name"
@@ -165,8 +142,9 @@ export default function AuthPage({ mode }: { mode: "signin" | "signup" }) {
                 </div>
               )}
               <TextField
-                label="Email"
+                label={t("field.email")}
                 type="email"
+                dir="ltr"
                 value={email}
                 onChange={setEmail}
                 autoComplete={signingUp ? "email" : "username"}
@@ -175,14 +153,15 @@ export default function AuthPage({ mode }: { mode: "signin" | "signup" }) {
                 autoFocus={!signingUp}
               />
               <TextField
-                label="Password"
+                label={t("field.password")}
                 type={showPassword ? "text" : "password"}
+                dir="ltr"
                 value={password}
                 onChange={setPassword}
                 autoComplete={signingUp ? "new-password" : "current-password"}
                 minLength={signingUp ? MIN_PASSWORD_LENGTH : undefined}
                 maxLength={128}
-                hint={signingUp ? `At least ${MIN_PASSWORD_LENGTH} characters.` : undefined}
+                hint={signingUp ? t("field.passwordHint", { n: MIN_PASSWORD_LENGTH }) : undefined}
                 required
               />
               {signingUp && (
@@ -190,8 +169,9 @@ export default function AuthPage({ mode }: { mode: "signin" | "signup" }) {
                   <PasswordStrength password={password} minLength={MIN_PASSWORD_LENGTH} />
                   <div className="field-enter">
                     <TextField
-                      label="Confirm password"
+                      label={t("field.confirmPassword")}
                       type={showPassword ? "text" : "password"}
+                      dir="ltr"
                       value={confirm}
                       onChange={setConfirm}
                       autoComplete="new-password"
@@ -207,20 +187,25 @@ export default function AuthPage({ mode }: { mode: "signin" | "signup" }) {
                   checked={showPassword}
                   onChange={(event) => setShowPassword(event.target.checked)}
                 />
-                Show password
+                {t("field.showPassword")}
               </label>
               <SubmitButton busy={busy} className="btn btn-primary btn-lg btn-block">
-                {signingUp ? "Create account" : "Sign in"}
+                {t(signingUp ? "common.createAccount" : "common.signIn")}
               </SubmitButton>
             </form>
 
             <p className="auth-switch muted">
-              {signingUp ? "Already have an account? " : "New here? "}
+              {t(signingUp ? "auth.haveAccount" : "auth.newHere")}{" "}
               <Link to={signingUp ? "/login" : "/signup"} state={location.state}>
-                {signingUp ? "Sign in" : "Create an account"}
+                {t(signingUp ? "common.signIn" : "common.createAnAccount")}
               </Link>
             </p>
           </div>
+
+          <p className="auth-foot muted">
+            <Link to="/">{t("common.about", { name: APP_NAME })}</Link>
+            <span>{t("common.disclaimer")}</span>
+          </p>
         </div>
       </main>
     </div>

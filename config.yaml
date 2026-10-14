@@ -1,5 +1,5 @@
-# SynergyRx data pipeline configuration.
-# Any value can be overridden on the command line:  synergyrx --set http.cache_ttl_seconds=0 fetch
+# Tujya data pipeline configuration.
+# Any value can be overridden on the command line:  tujya --set http.cache_ttl_seconds=0 fetch
 # Keys that contain dots go in brackets:            --set "http.hosts[zenodo.org].rate=0.05"
 # Secrets (CONTACT_EMAIL, NCBI_API_KEY) live in .env, never in this file.
 
@@ -12,7 +12,7 @@ data_dir: data
 # To put one format somewhere else, set parquet_dir, csv_dir, json_dir or reports_dir.
 
 http:
-  product: synergyrx-data
+  product: tujya-data
   project_url: null              # public page describing the project, added to the User-Agent
   require_contact_email: true    # refuse live requests until CONTACT_EMAIL is set in .env
   connect_timeout: 10
@@ -124,5 +124,5 @@ export:
 logging:
   level: INFO
   json_logs: true
-  file: null                     # e.g. logs/synergyrx.jsonl
+  file: null                     # e.g. logs/tujya.jsonl
   progress: true

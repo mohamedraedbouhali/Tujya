@@ -5,17 +5,17 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from synergyrx_data.config import RetrySettings
-from synergyrx_data.http.circuit import CircuitBreaker
-from synergyrx_data.http.errors import (
+from tests.conftest import FakeClock
+from tujya_data.config import RetrySettings
+from tujya_data.http.circuit import CircuitBreaker
+from tujya_data.http.errors import (
     AccessControlError,
     CircuitOpenError,
     NotFoundError,
     RetryableHttpError,
 )
-from synergyrx_data.http.retry import backoff_delay, is_retryable, parse_retry_after, wait_seconds
-from synergyrx_data.http.robots import RobotsChecker, RobotsPolicy
-from tests.conftest import FakeClock
+from tujya_data.http.retry import backoff_delay, is_retryable, parse_retry_after, wait_seconds
+from tujya_data.http.robots import RobotsChecker, RobotsPolicy
 
 # ------------------------------------------------------------------- retry
 
@@ -98,7 +98,7 @@ Disallow: /
 Allow: /$
 Allow: /spaces/*/pages/
 """
-AGENT = "synergyrx-data"
+AGENT = "tujya-data"
 
 
 def test_wildcards_and_longest_match_like_real_zenodo_rules() -> None:
@@ -119,7 +119,7 @@ def test_nci_wiki_blocks_downloads_but_not_pages() -> None:
 
 
 def test_specific_user_agent_group_overrides_the_wildcard() -> None:
-    text = "User-agent: *\nDisallow: /\n\nUser-agent: synergyrx-data\nDisallow: /private\n"
+    text = "User-agent: *\nDisallow: /\n\nUser-agent: tujya-data\nDisallow: /private\n"
     policy = RobotsPolicy(text)
     assert policy.allowed("/data.csv", AGENT)
     assert not policy.allowed("/private/x", AGENT)

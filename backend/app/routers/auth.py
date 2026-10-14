@@ -50,7 +50,7 @@ def sign_in(payload: LoginIn, response: Response, db: DbSession, settings: Setti
     return user
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
 def sign_out(request: Request, response: Response, db: DbSession, settings: SettingsDep) -> None:
     """Always succeeds, so that an expired session can still be cleared from the browser."""
     token = request.cookies.get(settings.session_cookie)
@@ -80,7 +80,7 @@ def update_me(payload: ProfileUpdate, user: CurrentUser, db: DbSession) -> User:
     return user
 
 
-@router.post("/me/password", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/me/password", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
 def change_my_password(payload: PasswordChange, session: CurrentSession, db: DbSession) -> None:
     """Change the password and sign out every other browser of this account."""
     user = session.user

@@ -140,7 +140,9 @@ def update_account(user_id: int, payload: AdminUserUpdate, admin: AdminUser, db:
     return user
 
 
-@router.post("/users/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/users/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT, response_model=None
+)
 def reset_password(
     user_id: int, payload: AdminPasswordReset, session: CurrentSession, db: DbSession
 ) -> None:
@@ -155,7 +157,7 @@ def reset_password(
     db.commit()
 
 
-@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
 def delete_account(user_id: int, admin: AdminUser, db: DbSession) -> None:
     user = _get_user(db, user_id)
     if user.id == admin.id:
